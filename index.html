@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#070314" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Beat Runner - Rhythm Endless Highway</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- 60/120fps Responsive Highway Canvas -->
+      <canvas id="game-canvas"></canvas>
+
+      <!-- In-Game HUD -->
+      <div id="game-hud" class="ui-layer">
+        <div class="hud-top-bar">
+          <div class="hud-stat-group">
+            <span class="hud-label">Score</span>
+            <div id="hud-score" class="hud-score-val">0</div>
+          </div>
+
+          <div class="hud-stat-group" style="align-items: center">
+            <span class="hud-label">Streak</span>
+            <div>
+              <span id="hud-combo" class="hud-combo-val">0</span>
+              <span id="hud-multiplier" class="hud-multiplier-pill">1x</span>
+            </div>
+          </div>
+
+          <div class="hud-genre-badge">
+            <span id="hud-genre-name" class="genre-title">Synthwave</span>
+            <span id="hud-bpm" class="bpm-ticker">116 BPM</span>
+          </div>
+        </div>
+
+        <!-- Groove Energy Meter -->
+        <div class="groove-meter-container">
+          <div class="groove-label-row">
+            <span style="color: var(--color-primary)">Groove Meter</span>
+            <span id="groove-text" style="color: var(--color-secondary)">20%</span>
+          </div>
+          <div class="groove-track">
+            <div id="groove-fill" class="groove-fill"></div>
+          </div>
+          <!-- Micro-timing feedback needle -->
+          <div class="timing-needle-box">
+            <span id="timing-label" class="timing-text">Strike Bar Ready</span>
+            <div class="timing-bar">
+              <div id="timing-marker" class="timing-marker"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mobile Touch Guides (visible when touch interaction is detected) -->
+        <div class="mobile-controls">
+          <div class="mobile-lane-indicators">
+            <div class="mobile-lane-zone" id="touch-lane-0">◀ Left</div>
+            <div class="mobile-lane-zone" id="touch-lane-1">Center</div>
+            <div class="mobile-lane-zone" id="touch-lane-2">Right ▶</div>
+          </div>
+          <div class="mobile-action-zone">
+            <button id="mobile-pulse-btn" class="pulse-btn interactive">⚡ BEAT PULSE / JUMP</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Start Menu Screen -->
+      <div id="menu-screen" class="screen-container active">
+        <div class="menu-card glass-panel interactive">
+          <h1 class="game-logo">Beat Runner</h1>
+          <p class="game-tagline">
+            Navigate the musical highway, collect beat notes, leap over dissonance barriers, and master shifting rhythmic genres.
+          </p>
+
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px">
+            <button id="btn-play-endless" class="btn btn-primary">
+              🚀 Play Endless Odyssey (Genre Shift)
+            </button>
+            <button id="btn-open-stages" class="btn btn-secondary">
+              🎵 Select Genre Stage
+            </button>
+            <button id="btn-pulse-dojo" class="btn btn-secondary">
+              🥋 Pulse Dojo (Ear & Internal Clock)
+            </button>
+          </div>
+
+          <!-- Genre Selection Drawer (hidden by default) -->
+          <div id="genre-select-container" style="display: none; flex-direction: column; gap: 8px">
+            <span class="hud-label" style="text-align: left">Select Genre to Master:</span>
+            <div class="genre-grid" id="genre-grid-items">
+              <!-- Dynamically populated -->
+            </div>
+            <button id="btn-start-stage" class="btn btn-accent" style="margin-top: 4px">
+              ▶ Start Selected Stage
+            </button>
+          </div>
+
+          <div class="controls-hint">
+            <span><span class="key-pill">A / D / ◀ ▶</span> Steer Lanes</span>
+            <span><span class="key-pill">Space / W / ▲</span> Jump</span>
+            <span><span class="key-pill">S / ▼</span> Pulse</span>
+          </div>
+
+          <div style="display: flex; justify-content: center; gap: 16px; margin-top: 4px">
+            <button id="btn-open-calibrate" class="btn btn-secondary" style="font-size: 12px; padding: 8px 14px">
+              ⏱ Audio Calibrator (<span id="menu-offset-label">0ms</span>)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Latency Calibrator Screen -->
+      <div id="calibrate-screen" class="screen-container">
+        <div class="menu-card glass-panel interactive">
+          <h2 style="font-family: var(--font-display); font-size: 24px; color: var(--color-secondary)">
+            Audio & Input Calibration
+          </h2>
+          <p style="font-size: 13px; color: var(--color-text-dim)">
+            Bluetooth earphones or mobile audio systems often introduce a slight delay. Tap the pad in time with the rhythmic pulse to auto-synchronize!
+          </p>
+
+          <div id="calibrator-pad" class="calibrator-tap-area">
+            TAP ON THE BEAT (0/8)
+          </div>
+
+          <div class="calibration-slider-row">
+            <span class="hud-label">Manual Offset:</span>
+            <input type="range" id="latency-slider" min="-100" max="150" step="5" value="0" />
+            <span id="latency-slider-val" style="font-weight: 800; min-width: 50px">0ms</span>
+          </div>
+
+          <button id="btn-save-calibrate" class="btn btn-primary" style="margin-top: 8px">
+            Save & Return
+          </button>
+        </div>
+      </div>
+
+      <!-- Post-Run Musical Diagnostics Screen -->
+      <div id="gameover-screen" class="screen-container">
+        <div class="menu-card glass-panel interactive">
+          <span class="hud-label">Run Analysis</span>
+          <div id="diag-rank" class="rank-badge">S</div>
+          <h2 id="diag-score" style="font-family: var(--font-display); font-size: 30px; color: #fff">
+            0 PTS
+          </h2>
+          <p id="diag-genre-mastery" style="font-size: 12px; color: var(--color-accent); font-weight: 600">
+            Neon Synthwave Mastery
+          </p>
+
+          <div class="stats-grid">
+            <div class="stat-item">
+              <span class="stat-title">Timing Accuracy</span>
+              <span id="diag-accuracy" class="stat-value">94%</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-title">Max Beat Streak</span>
+              <span id="diag-maxcombo" class="stat-value">48</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-title">Average Offset</span>
+              <span id="diag-meandelta" class="stat-value">+6ms Late</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-title">Perfect / Great / Miss</span>
+              <span id="diag-breakdown" class="stat-value">32 / 12 / 1</span>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 8px">
+            <button id="btn-restart-run" class="btn btn-primary" style="flex: 1">
+              🔄 Play Again
+            </button>
+            <button id="btn-return-menu" class="btn btn-secondary" style="flex: 1">
+              🏠 Menu
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
