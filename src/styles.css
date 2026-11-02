@@ -722,39 +722,167 @@ button {
   color: #fbbf24;
 }
 
-/* Mobile Touch Action Button (Bottom-Right) */
-.mobile-action-overlay {
+/* ==========================================================================
+   MOBILE CONTROLS & ERGONOMIC TOUCH BUTTONS (Subway Surfers Style)
+   ========================================================================== */
+
+.mobile-controls-cluster {
   position: absolute;
-  bottom: 20px;
-  right: 20px;
-  pointer-events: auto;
+  bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 max(16px, env(safe-area-inset-right, 16px)) 0 max(16px, env(safe-area-inset-left, 16px));
+  pointer-events: none;
+  z-index: 25;
 }
 
-.btn-arcade-jump {
-  width: 80px;
-  height: 80px;
+.mobile-steer-overlay {
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+  align-items: flex-end;
+}
+
+.mobile-action-overlay {
+  display: flex;
+  gap: 10px;
+  pointer-events: auto;
+  align-items: flex-end;
+}
+
+.btn-arcade-mobile {
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #ff2a85 0%, #be123c 100%);
   border: 3px solid var(--color-ink);
-  box-shadow: 0 6px 0 #881337, 0 10px 20px rgba(0, 0, 0, 0.5);
   color: #ffffff;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  font-size: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  transition: transform var(--trans-fast), box-shadow var(--trans-fast);
+}
+
+.mobile-btn-label {
+  font-family: var(--font-display);
+  font-size: 9px;
   font-weight: 900;
+  letter-spacing: 0.6px;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
-.btn-arcade-jump:active {
-  transform: translateY(4px) scale(0.95);
-  box-shadow: 0 2px 0 #881337;
+.btn-arcade-mobile svg {
+  width: 22px;
+  height: 22px;
 }
 
-.btn-arcade-jump svg {
-  width: 26px;
-  height: 26px;
+/* Steer Left/Right Buttons (Electric Cyan) */
+.btn-mobile-steer {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  box-shadow: 0 5px 0 #0369a1, 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.btn-mobile-steer:active,
+.btn-mobile-steer.touch-active {
+  transform: translateY(4px) scale(0.94);
+  box-shadow: 0 1px 0 #0369a1, 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Slide Crouch Button (Golden Amber) */
+.btn-mobile-slide {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  box-shadow: 0 5px 0 #b45309, 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.btn-mobile-slide:active,
+.btn-mobile-slide.touch-active {
+  transform: translateY(4px) scale(0.94);
+  box-shadow: 0 1px 0 #b45309, 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Jump Leap Button (Neon Magenta) */
+.btn-mobile-jump {
+  background: linear-gradient(180deg, #ff2a85 0%, #e11d48 100%);
+  box-shadow: 0 5px 0 #9f1239, 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+
+.btn-mobile-jump:active,
+.btn-mobile-jump.touch-active {
+  transform: translateY(4px) scale(0.94);
+  box-shadow: 0 1px 0 #9f1239, 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Floating Subway Surfers Swipe Guidance Banner */
+.mobile-swipe-guide {
+  position: absolute;
+  bottom: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(9, 4, 20, 0.84);
+  border: 1.5px solid var(--color-primary);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.6px;
+  box-shadow: 0 4px 18px rgba(0, 243, 255, 0.35);
+  pointer-events: none;
+  z-index: 24;
+  white-space: nowrap;
+  animation: swipe-guide-pulse 2s infinite ease-in-out;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.mobile-swipe-guide.dismissed {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(12px);
+}
+
+@keyframes swipe-guide-pulse {
+  0%, 100% { transform: translateX(-50%) scale(1); box-shadow: 0 4px 16px rgba(0, 243, 255, 0.35); }
+  50% { transform: translateX(-50%) scale(1.04); box-shadow: 0 4px 22px rgba(255, 42, 133, 0.55); }
+}
+
+/* Orientation Hint for Mobile Devices in Landscape */
+.orientation-hint {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top, 12px));
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #1e1b4b, #311042);
+  border: 2px solid #a855f7;
+  border-radius: 24px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 100;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+}
+
+.orientation-hint button {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  color: #ffffff;
 }
 
 /* ==========================================================================
@@ -1307,34 +1435,316 @@ button {
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.mobile-action-overlay {
-  display: flex;
-  gap: 10px;
-}
-
 /* ==========================================================================
-   RESPONSIVE QUERIES (Mobile-First Polish)
+   RESPONSIVE QUERIES (Mobile-First Polish & Safe-Area Tuning)
    ========================================================================== */
 
 @media (max-width: 600px) {
+  /* 1. In-Game HUD: Compact Mobile Header */
+  #game-hud {
+    padding: max(8px, env(safe-area-inset-top, 8px)) 10px 0 10px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .hud-top-left {
+    gap: 6px;
+    order: 1;
+  }
+
+  .pause-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .groove-capsule {
+    width: 125px;
+    padding: 5px 8px;
+    gap: 2px;
+  }
+
+  .groove-title {
+    font-size: 9px;
+  }
+
+  .groove-stems-row {
+    display: none; /* Hide stem chips on narrow mobile to keep 3D view clean */
+  }
+
+  .tempo-radar-pill {
+    font-size: 9px;
+    padding: 1px 4px;
+  }
+
+  .hud-top-right {
+    order: 2;
+  }
+
+  .hud-score-card {
+    padding: 4px 10px;
+    gap: 2px;
+  }
+
+  .score-odometer {
+    font-size: 20px;
+  }
+
+  .multiplier-star-badge {
+    padding: 2px 6px;
+    font-size: 11px;
+  }
+
+  .coins-earned-pill {
+    padding: 2px 8px;
+    font-size: 11px;
+  }
+
+  .hud-top-center {
+    order: 3;
+    width: 100%;
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .genre-capsule {
+    padding: 2px 10px;
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .genre-text {
+    font-size: 10px;
+  }
+
+  .genre-bpm {
+    font-size: 9px;
+  }
+
+  .note-sequence-pill {
+    font-size: 10px;
+    padding: 2px 10px;
+  }
+
+  .notes-collected-ticker {
+    font-size: 9px;
+  }
+
+  .mission-mini-pill {
+    font-size: 9px;
+    padding: 2px 8px;
+  }
+
+  /* 2. Lobby Header & Dock */
+  .lobby-header {
+    padding: max(8px, env(safe-area-inset-top, 8px)) 8px 0 8px;
+    gap: 4px;
+  }
+
+  .rank-pill {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .rank-pill .pill-label {
+    display: none; /* Hide label on small screens to save space */
+  }
+
+  .rank-pill .pill-value {
+    font-size: 11px;
+  }
+
+  .record-pill {
+    padding: 4px 10px;
+    gap: 6px;
+  }
+
+  .record-pill .pill-label {
+    display: none;
+  }
+
+  .record-pill .pill-value {
+    font-size: 11px;
+  }
+
+  .coin-pill {
+    padding: 4px 10px;
+  }
+
+  .coin-val {
+    font-size: 13px;
+  }
+
+  .arcade-icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .arcade-icon-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .lobby-hero {
+    margin-top: 0;
+  }
+
+  .arcade-logo {
+    font-size: clamp(38px, 11vw, 54px);
+  }
+
+  .logo-badge {
+    font-size: 9px;
+    padding: 3px 12px;
+  }
+
+  .story-tagline {
+    font-size: 9px;
+    padding: 3px 8px;
+    max-width: 290px;
+  }
+
   .lobby-dock {
+    gap: 6px;
+    padding: 0 4px;
+  }
+
+  .dock-tab-btn {
+    height: 52px;
+    padding: 4px;
+  }
+
+  .tab-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .tab-text {
+    font-size: 10px;
+  }
+
+  .lobby-play-cta .btn-arcade-play {
+    height: 60px;
+    font-size: 20px;
+    border-radius: 18px;
+  }
+
+  /* 3. Modals on Mobile */
+  .screen-modal {
+    padding: max(12px, env(safe-area-inset-top, 12px)) 12px max(12px, env(safe-area-inset-bottom, 12px)) 12px;
+  }
+
+  .arcade-card {
+    padding: 16px;
+    max-height: 88dvh;
+    border-radius: 18px;
+    gap: 12px;
+  }
+
+  .modal-title {
+    font-size: 17px;
+  }
+
+  .modal-description {
+    font-size: 11px;
+  }
+
+  .worlds-carousel {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
     gap: 8px;
   }
-  .dock-tab-btn {
-    height: 58px;
+
+  .world-card {
+    padding: 10px;
   }
-  .lobby-play-cta .btn-arcade-play {
-    height: 64px;
-    font-size: 24px;
+
+  .skin-card {
+    padding: 10px;
+    font-size: 12px;
   }
-  .arcade-card {
-    padding: 18px;
+
+  .skin-name {
+    font-size: 13px;
   }
+
+  .stats-podium-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .podium-stat {
+    padding: 8px;
+  }
+
+  .stat-num {
+    font-size: 14px;
+  }
+
+  /* 4. Ergonomic Mobile Buttons */
+  .btn-arcade-mobile {
+    width: 62px;
+    height: 62px;
+  }
+
+  .btn-arcade-mobile svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .mobile-swipe-guide {
+    font-size: 9px;
+    padding: 4px 12px;
+    bottom: 84px;
+  }
+}
+
+/* Extra Compact Phones (< 380px, e.g. iPhone SE / Galaxy Mini) */
+@media (max-width: 380px) {
+  .record-pill {
+    display: none; /* Hide record pill to fit coin + calibrate + audio + fullscreen */
+  }
+
+  .btn-arcade-mobile {
+    width: 54px;
+    height: 54px;
+  }
+
+  .mobile-steer-overlay,
+  .mobile-action-overlay {
+    gap: 6px;
+  }
+
+  .mobile-btn-label {
+    font-size: 8px;
+  }
+
+  .groove-capsule {
+    width: 105px;
+  }
+
   .score-odometer {
-    font-size: 24px;
+    font-size: 18px;
   }
-  .story-tagline {
-    font-size: 10px;
-    padding: 4px 10px;
+}
+
+/* Short Landscape Screens */
+@media (max-height: 550px) {
+  .lobby-hero {
+    display: none; /* Prevent logo overlapping play button in short landscape */
+  }
+
+  .arcade-card {
+    max-height: 94dvh;
+  }
+
+  .mobile-controls-cluster {
+    bottom: 8px;
+  }
+
+  .btn-arcade-mobile {
+    width: 52px;
+    height: 52px;
   }
 }

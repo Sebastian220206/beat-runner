@@ -22,8 +22,9 @@ export class InputManager {
   private touchStartX = 0;
   private touchStartY = 0;
   private isTouching = false;
-  private swipeThreshold = 35; // Pixels
+  private swipeThreshold = 26; // Snappy threshold in CSS pixels
   private touchHandledAsSwipe = false;
+  private lastTapTimestamp = 0;
 
   constructor() {
     this.setupKeyboardListeners();
@@ -38,6 +39,7 @@ export class InputManager {
   }
 
   public handleActionDirectly(event: PlayerInputEvent): void {
+    this.triggerHaptic(18);
     this.dispatch(event);
   }
 
@@ -118,8 +120,28 @@ export class InputManager {
   }
 
   /**
-   * Attaches touch listeners directly to the interactive Canvas/Container with passive: false
-   * to eliminate mobile tap latency and prevent accidental browser navigation/zoom.
+   * Binds an interactive mobile button to dispatch immediately on pointerdown/touchstart
+   * with zero latency (eliminating mobile 300ms click delay).
+   */
+  public bindActionButton(element: HTMLElement | null, action: PlayerActionType): void {
+    if (!element) return;
+
+    const trigger = (e: Event) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.handleActionDirectly({ type: action, timestamp: performance.now() });
+      element.classList.add('touch-active');
+      setTimeout(() => element.classList.remove('touch-active'), 140);
+    };
+
+    element.addEventListener('pointerdown', trigger);
+    element.addEventListener('touchstart', trigger, { passive: false });
+  }
+
+  /**
+   * Attaches fluid Subway Surfers swipe & tap controls directly to the interactive Canvas/Container
+   * with passive: false to eliminate mobile tap latency, prevent bounce scrolling, and enable
+   * fluid continuous gesture chaining without lifting the finger.
    */
   public attachTouchControls(element: HTMLElement): void {
     element.addEventListener(
@@ -146,25 +168,35 @@ export class InputManager {
         const touch = e.touches[0];
         const deltaX = touch.clientX - this.touchStartX;
         const deltaY = touch.clientY - this.touchStartY;
+        const absX = Math.abs(deltaX);
+        const absY = Math.abs(deltaY);
         const now = performance.now();
 
-        if (!this.touchHandledAsSwipe) {
-          if (Math.abs(deltaX) > this.swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-            if (deltaX < 0) {
-              this.dispatch({ type: 'move_left', timestamp: now });
-            } else {
-              this.dispatch({ type: 'move_right', timestamp: now });
-            }
-            this.touchHandledAsSwipe = true;
-          } else if (deltaY < -this.swipeThreshold) {
-            // Upward swipe -> Jump
-            this.dispatch({ type: 'jump', timestamp: now });
-            this.touchHandledAsSwipe = true;
-          } else if (deltaY > this.swipeThreshold) {
-            // Downward swipe -> Slide
-            this.dispatch({ type: 'slide', timestamp: now });
-            this.touchHandledAsSwipe = true;
+        // 1. Horizontal Swipes (Left / Right Lane Switch)
+        if (absX > this.swipeThreshold && absX > absY * 1.15) {
+          if (deltaX < 0) {
+            this.dispatch({ type: 'move_left', timestamp: now });
+          } else {
+            this.dispatch({ type: 'move_right', timestamp: now });
           }
+          this.triggerHaptic(18);
+          // Re-anchor start point so the player can chain another swipe without lifting thumb!
+          this.touchStartX = touch.clientX;
+          this.touchStartY = touch.clientY;
+          this.touchHandledAsSwipe = true;
+        }
+        // 2. Vertical Swipes (Up = Jump, Down = Slide)
+        else if (absY > this.swipeThreshold && absY > absX * 1.15) {
+          if (deltaY < 0) {
+            this.dispatch({ type: 'jump', timestamp: now });
+          } else {
+            this.dispatch({ type: 'slide', timestamp: now });
+          }
+          this.triggerHaptic(18);
+          // Re-anchor start point for smooth chained jump -> slide or slide -> lane switch
+          this.touchStartX = touch.clientX;
+          this.touchStartY = touch.clientY;
+          this.touchHandledAsSwipe = true;
         }
       },
       { passive: false }
@@ -177,19 +209,23 @@ export class InputManager {
         e.preventDefault();
         this.isTouching = false;
 
+        // If finger wasn't dragged past swipe threshold, treat as an accurate tap
         if (!this.touchHandledAsSwipe) {
+          const now = performance.now();
           const rect = element.getBoundingClientRect();
           const relativeX = this.touchStartX - rect.left;
-          const relativeY = this.touchStartY - rect.top;
           const width = rect.width;
-          const height = rect.height;
-          const now = performance.now();
 
-          if (relativeY > height * 0.78) {
-            this.dispatch({ type: 'jump', timestamp: now });
+          // Double tap check: activates pulse / double jump / fever
+          if (now - this.lastTapTimestamp < 290) {
+            this.dispatch({ type: 'pulse', timestamp: now });
+            this.triggerHaptic(25);
+            this.lastTapTimestamp = 0;
             return;
           }
+          this.lastTapTimestamp = now;
 
+          // Three-column lane tap: Left 1/3 -> Lane 0, Center 1/3 -> Lane 1, Right 1/3 -> Lane 2
           const colWidth = width / 3;
           let tappedLane = 1;
           if (relativeX < colWidth) {
@@ -199,13 +235,14 @@ export class InputManager {
           }
 
           this.dispatch({ type: 'set_lane', targetLane: tappedLane, timestamp: now });
+          this.triggerHaptic(15);
         }
       },
       { passive: false }
     );
   }
 
-  public triggerHaptic(durationMs = 25): void {
+  public triggerHaptic(durationMs = 20): void {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate(durationMs);

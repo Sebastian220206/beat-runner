@@ -121,6 +121,10 @@ export class UIManager {
       'icon-groove-flame': ICONS.flame,
       'icon-hud-star': ICONS.star,
       'icon-hud-coin': ICONS.beatCoin,
+      'icon-lobby-fullscreen': ICONS.fullscreen,
+      'icon-mobile-left': ICONS.left,
+      'icon-mobile-right': ICONS.right,
+      'icon-mobile-slide': ICONS.slide,
       'icon-mobile-jump': ICONS.jump,
       'icon-modal-worlds': ICONS.worlds,
       'icon-close-worlds': ICONS.close,
@@ -255,14 +259,62 @@ export class UIManager {
       this.lobbyOffsetLabel.innerText = `${val}ms`;
     });
 
-    // 9. Mobile Jump & Slide Buttons
-    document.getElementById('mobile-pulse-btn')?.addEventListener('click', () => {
-      input.handleActionDirectly({ type: 'jump', timestamp: performance.now() });
+    // 9. Tactile Mobile Steer, Jump & Slide Buttons (Zero Latency pointerdown/touchstart)
+    input.bindActionButton(document.getElementById('mobile-left-btn'), 'move_left');
+    input.bindActionButton(document.getElementById('mobile-right-btn'), 'move_right');
+    input.bindActionButton(document.getElementById('mobile-slide-btn'), 'slide');
+    input.bindActionButton(document.getElementById('mobile-pulse-btn'), 'jump');
+
+    // Hide mobile swipe guide on first action or after 4 seconds
+    const swipeGuide = document.getElementById('mobile-swipe-guide');
+    input.registerCallback(() => {
+      if (swipeGuide && !swipeGuide.classList.contains('dismissed')) {
+        swipeGuide.classList.add('dismissed');
+      }
     });
 
-    document.getElementById('mobile-slide-btn')?.addEventListener('click', () => {
-      input.handleActionDirectly({ type: 'slide', timestamp: performance.now() });
+    // 10. Fullscreen Mode Toggle for Mobile & Web
+    const fsBtn = document.getElementById('btn-quick-fullscreen');
+    if (fsBtn) {
+      fsBtn.addEventListener('click', () => {
+        audio.playButtonPop();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen?.().catch(() => {});
+        } else {
+          document.exitFullscreen?.().catch(() => {});
+        }
+      });
+    }
+
+    // 11. Mobile Auto-Pause on Incoming Call / App Switch
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && game.state === 'PLAYING') {
+        game.pause();
+        this.openModal(this.modalPause);
+      }
     });
+
+    // 12. Mobile Orientation Advisory (Suggests Portrait for Subway Surfers Gameplay)
+    const checkOrientation = () => {
+      const hint = document.getElementById('orientation-hint');
+      const isMobile = window.innerWidth <= 900 || 'ontouchstart' in window;
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (hint && isMobile && isLandscape && !hint.dataset.dismissed) {
+        hint.style.display = 'flex';
+      } else if (hint) {
+        hint.style.display = 'none';
+      }
+    };
+    window.addEventListener('resize', checkOrientation);
+    window.addEventListener('orientationchange', checkOrientation);
+    document.getElementById('btn-close-orientation')?.addEventListener('click', () => {
+      const hint = document.getElementById('orientation-hint');
+      if (hint) {
+        hint.style.display = 'none';
+        hint.dataset.dismissed = 'true';
+      }
+    });
+    setTimeout(checkOrientation, 1000);
   }
 
   public updateLobbyTelemetry(): void {

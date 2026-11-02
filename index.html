@@ -71,6 +71,15 @@
             >
               <span id="icon-lobby-sound"></span>
             </button>
+
+            <button
+              class="arcade-icon-btn"
+              id="btn-quick-fullscreen"
+              aria-label="Toggle Fullscreen"
+              title="Toggle Fullscreen"
+            >
+              <span id="icon-lobby-fullscreen"></span>
+            </button>
           </div>
         </header>
 
@@ -197,16 +206,40 @@
           </div>
         </div>
 
-        <!-- Mobile Touch Trigger Zone (Bottom-Right Jump & Slide Actions) -->
-        <div class="mobile-action-overlay">
-          <button class="btn-arcade-jump" id="mobile-slide-btn" aria-label="Slide Crouch">
-            <span>▼ SLIDE</span>
-          </button>
-          <button class="btn-arcade-jump" id="mobile-pulse-btn" aria-label="Beat Jump">
-            <span id="icon-mobile-jump"></span>
-            <span>JUMP</span>
-          </button>
+        <!-- Subway Surfers Floating Swipe Guidance Banner (Disappears after swipe/3s) -->
+        <div class="mobile-swipe-guide" id="mobile-swipe-guide">
+          <span>SWIPE ◄ ► TO DODGE • ▲ TO JUMP • ▼ TO SLIDE</span>
         </div>
+
+        <!-- Mobile Touch Controls: Steer Cluster (Left) + Jump/Slide Actions (Right) -->
+        <div class="mobile-controls-cluster">
+          <div class="mobile-steer-overlay">
+            <button class="btn-arcade-mobile btn-mobile-steer" id="mobile-left-btn" aria-label="Steer Left">
+              <span id="icon-mobile-left"></span>
+              <span class="mobile-btn-label">LEFT</span>
+            </button>
+            <button class="btn-arcade-mobile btn-mobile-steer" id="mobile-right-btn" aria-label="Steer Right">
+              <span id="icon-mobile-right"></span>
+              <span class="mobile-btn-label">RIGHT</span>
+            </button>
+          </div>
+          <div class="mobile-action-overlay">
+            <button class="btn-arcade-mobile btn-mobile-slide" id="mobile-slide-btn" aria-label="Slide Crouch">
+              <span id="icon-mobile-slide"></span>
+              <span class="mobile-btn-label">SLIDE</span>
+            </button>
+            <button class="btn-arcade-mobile btn-mobile-jump" id="mobile-pulse-btn" aria-label="Beat Jump">
+              <span id="icon-mobile-jump"></span>
+              <span class="mobile-btn-label">JUMP</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subtle Landscape to Portrait Tip on Mobile -->
+      <div id="orientation-hint" class="orientation-hint" style="display: none">
+        <span>📱 Rotate to Portrait for the full Subway Surfers experience!</span>
+        <button id="btn-close-orientation" aria-label="Dismiss">✕</button>
       </div>
 
       <!-- ========================================== -->

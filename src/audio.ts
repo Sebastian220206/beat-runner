@@ -146,6 +146,9 @@ export class AudioEngine {
 
   public startPlayback(startBeat = 0): void {
     if (!this.ctx) return;
+    if (this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
     this.isPlaying = true;
     this.nextBeatToSchedule = startBeat;
     this.songStartAudioTime = this.ctx.currentTime - startBeat * (60 / this.currentBpm);

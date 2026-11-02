@@ -47,14 +47,22 @@ window.addEventListener('DOMContentLoaded', () => {
     ui.showDiagnostics(diagnostics);
   };
 
-  // 5. Pre-warm AudioContext on First User Tap/Key
+  // 5. Pre-warm AudioContext on First User Tap/Touch/Key (Essential for iOS Safari & Mobile Chrome)
   const unlockAudio = () => {
     audio.init();
     window.removeEventListener('pointerdown', unlockAudio);
     window.removeEventListener('keydown', unlockAudio);
+    window.removeEventListener('touchstart', unlockAudio);
   };
   window.addEventListener('pointerdown', unlockAudio);
   window.addEventListener('keydown', unlockAudio);
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
+
+  // Handle Mobile Visual Viewport & Orientation Resizes
+  window.visualViewport?.addEventListener('resize', () => renderer.handleResize());
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => renderer.handleResize(), 150);
+  });
 
   // 6. High-Performance Animation Loop
   let lastTime = performance.now();

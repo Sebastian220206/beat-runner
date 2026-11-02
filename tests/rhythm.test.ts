@@ -15,6 +15,7 @@ import {
 } from '../src/rhythm.ts';
 import { GENRES, GENRE_ORDER } from '../src/genres.ts';
 import { GameManager } from '../src/game.ts';
+import { InputManager, PlayerInputEvent } from '../src/input.ts';
 
 describe('Rhythm Math & Time Conversions', () => {
   it('converts BPM to seconds per beat correctly', () => {
@@ -178,6 +179,20 @@ describe('Musical Utilities & Pattern Library', () => {
     gm.update(0.016);
     expect(gm.charAnimState).toBe('JUMPING');
     expect(gm.getPlayerHeight()).toBeGreaterThan(1.0);
+  });
+
+  it('supports unified mobile action buttons and direct gesture dispatch', () => {
+    const inputMgr = new InputManager();
+    const events: PlayerInputEvent[] = [];
+    inputMgr.registerCallback((evt) => events.push(evt));
+
+    inputMgr.handleActionDirectly({ type: 'move_left', timestamp: 1000 });
+    inputMgr.handleActionDirectly({ type: 'jump', timestamp: 1010 });
+    inputMgr.handleActionDirectly({ type: 'slide', timestamp: 1020 });
+    inputMgr.handleActionDirectly({ type: 'move_right', timestamp: 1030 });
+
+    expect(events.length).toBe(4);
+    expect(events.map((e) => e.type)).toEqual(['move_left', 'jump', 'slide', 'move_right']);
   });
 });
 
