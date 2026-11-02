@@ -3,6 +3,7 @@
 import { GameManager, TrackEntity } from './game.ts';
 import { GenreTheme } from './genres.ts';
 import { JudgmentResult } from './rhythm.ts';
+import { storage } from './storage.ts';
 
 export interface FloatingText {
   text: string;
@@ -41,6 +42,8 @@ export class GameRenderer {
   private floatingTexts: FloatingText[] = [];
   private particles: Particle[] = [];
   private pulseShockwave = 0; // 0 to 1
+  private lastTimingDeltaMs: number | null = null;
+  private timingArcOpacity = 0;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -71,6 +74,9 @@ export class GameRenderer {
   }
 
   public addJudgmentPopup(result: JudgmentResult, laneIndex: number): void {
+    this.lastTimingDeltaMs = result.deltaMs;
+    this.timingArcOpacity = 1.0;
+
     const laneX = (laneIndex - 1) * (this.width * 0.22);
     const screenX = this.vanishingX + laneX;
     const color =
@@ -151,21 +157,26 @@ export class GameRenderer {
 
   public render(game: GameManager, currentBeat: number, dt: number): void {
     const genre = game.currentGenre;
+    // In Lobby / MENU state, create gentle idle scroll so 3D background is live and vibrant
+    const activeBeat =
+      game.state === 'MENU' ? (performance.now() * 0.001) * (genre.bpm / 60) * 0.6 : currentBeat;
 
     // 1. Clear & Draw Sky
-    this.renderSky(genre, currentBeat);
+    this.renderSky(genre, activeBeat);
 
     // 2. Horizon Neon Sun / Pulse Orb
-    this.renderHorizonSun(genre, currentBeat);
+    this.renderHorizonSun(genre, activeBeat);
 
     // 3. Audio-Reactive Side Equalizers
-    this.renderSideEqualizers(genre, currentBeat);
+    this.renderSideEqualizers(genre, activeBeat);
 
     // 4. Perspective Highway & Grid Lines
-    this.renderHighway(genre, currentBeat);
+    this.renderHighway(genre, activeBeat, dt);
 
     // 5. Track Entities (Sorted by distance so furthest are drawn first)
-    this.renderEntities(game.entities, currentBeat, genre);
+    if (game.state === 'PLAYING' || game.state === 'PAUSED') {
+      this.renderEntities(game.entities, activeBeat, genre);
+    }
 
     // 6. Player Runner Hovercraft & Trail
     this.renderPlayer(game, genre);
@@ -177,7 +188,7 @@ export class GameRenderer {
     this.renderFloatingText(dt);
 
     // 9. Peripheral Groove / Fever Vignette
-    if (game.isFever) {
+    if (game.isFever && game.state === 'PLAYING') {
       this.renderFeverAura(genre);
     }
   }
@@ -247,7 +258,7 @@ export class GameRenderer {
     ctx.shadowBlur = 0;
   }
 
-  private renderHighway(genre: GenreTheme, currentBeat: number): void {
+  private renderHighway(genre: GenreTheme, currentBeat: number, dt: number): void {
     const ctx = this.ctx;
 
     // Highway Base Trapezoid
@@ -342,6 +353,58 @@ export class GameRenderer {
       ctx.arc(targetP.x, targetP.y, 16, 0, Math.PI * 2);
       ctx.stroke();
     }
+
+    // Diegetic Strike-Line Timing Arc (Subway Surfers-style in-world feedback)
+    if (this.timingArcOpacity > 0) {
+      this.timingArcOpacity = Math.max(0, this.timingArcOpacity - dt * 2.2);
+      const arcCenter = this.project3D(0, 0);
+      const arcWidth = Math.min(180, this.width * 0.38);
+      const arcY = arcCenter.y + 14;
+
+      ctx.save();
+      ctx.globalAlpha = this.timingArcOpacity;
+
+      // Arc background pill
+      ctx.fillStyle = '#090414dd';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(arcCenter.x - arcWidth / 2, arcY, arcWidth, 10, 5);
+      ctx.fill();
+      ctx.stroke();
+
+      // Center mark (0ms target)
+      ctx.strokeStyle = '#ffffffaa';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(arcCenter.x, arcY);
+      ctx.lineTo(arcCenter.x, arcY + 10);
+      ctx.stroke();
+
+      // Early / Late tick labels
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = 'bold 9px "Nunito", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('EARLY', arcCenter.x - arcWidth * 0.35, arcY - 3);
+      ctx.fillText('LATE', arcCenter.x + arcWidth * 0.35, arcY - 3);
+
+      // Indicator Pip
+      if (this.lastTimingDeltaMs !== null) {
+        const clampedDelta = Math.max(-100, Math.min(100, this.lastTimingDeltaMs));
+        const needleX = arcCenter.x + (clampedDelta / 100) * (arcWidth / 2 - 6);
+        const pipColor =
+          Math.abs(clampedDelta) <= 35 ? '#00ffff' : Math.abs(clampedDelta) <= 70 ? '#ffeb3b' : '#ff9800';
+
+        ctx.fillStyle = pipColor;
+        ctx.shadowColor = pipColor;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(needleX, arcY + 5, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     ctx.shadowBlur = 0;
   }
 
@@ -482,48 +545,71 @@ export class GameRenderer {
 
   private renderPlayer(game: GameManager, genre: GenreTheme): void {
     const ctx = this.ctx;
+    const skin = storage.getEquippedSkin();
 
-    // Calculate jump height offset
-    const jumpOffset = game.isJumping ? Math.sin(game.jumpProgress * Math.PI) * 0.7 : 0;
-    const p = this.project3D(game.currentLaneX, 0, jumpOffset);
+    const primaryColor = skin.primaryColor || genre.colors.player;
+    const secondaryColor = skin.secondaryColor || genre.colors.secondary;
+    const glowColor = skin.glowColor || genre.colors.playerGlow;
+
+    // In Lobby / MENU state, add idle hovering bob and subtle roll
+    let currentX = game.currentLaneX;
+    let jumpOffset = game.isJumping ? Math.sin(game.jumpProgress * Math.PI) * 0.7 : 0;
+    let bankAngle = (game.targetLane - 1 - game.currentLaneX) * 0.35;
+
+    if (game.state === 'MENU') {
+      currentX = 0;
+      const t = performance.now() * 0.003;
+      jumpOffset = 0.2 + Math.sin(t) * 0.12;
+      bankAngle = Math.sin(t * 0.8) * 0.08;
+    }
+
+    const p = this.project3D(currentX, 0, jumpOffset);
     if (!p.visible) return;
 
     // Drop Shadow on Highway
-    const shadowP = this.project3D(game.currentLaneX, 0, 0);
+    const shadowP = this.project3D(currentX, 0, 0);
     ctx.fillStyle = '#00000088';
     ctx.beginPath();
-    ctx.ellipse(shadowP.x, shadowP.y + 4, 26, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(shadowP.x, shadowP.y + 4, 28, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Runner Vehicle Body (Aerodynamic Wedge)
+    // Runner Vehicle Body
     ctx.save();
     ctx.translate(p.x, p.y);
-
-    // Bank angle into turns
-    const targetX = game.targetLane - 1;
-    const bankAngle = (targetX - game.currentLaneX) * 0.35;
     ctx.rotate(bankAngle);
 
-    // Thruster Glow
-    ctx.fillStyle = genre.colors.playerGlow;
-    ctx.shadowColor = genre.colors.playerGlow;
-    ctx.shadowBlur = 20;
+    // Thruster Jet Glow
+    ctx.fillStyle = glowColor;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 22;
 
-    // Craft silhouette
+    // Craft Outer Silhouette (Crisp 3D arcade wedge)
     ctx.beginPath();
-    ctx.moveTo(0, -22); // Nose
-    ctx.lineTo(24, 16); // Right wing
-    ctx.lineTo(10, 10); // Right notch
-    ctx.lineTo(-10, 10); // Left notch
-    ctx.lineTo(-24, 16); // Left wing
+    ctx.moveTo(0, -24); // Sharp aerodynamic nose
+    ctx.lineTo(26, 16); // Right wing tip
+    ctx.lineTo(12, 12); // Right thruster notch
+    ctx.lineTo(-12, 12); // Left thruster notch
+    ctx.lineTo(-26, 16); // Left wing tip
     ctx.closePath();
-    ctx.fillStyle = genre.colors.player;
+    ctx.fillStyle = primaryColor;
     ctx.fill();
 
-    // Cockpit neon canopy
+    // Secondary Accent Wing Decals
+    ctx.fillStyle = secondaryColor;
+    ctx.beginPath();
+    ctx.moveTo(0, -14);
+    ctx.lineTo(18, 12);
+    ctx.lineTo(8, 10);
+    ctx.lineTo(0, -6);
+    ctx.lineTo(-8, 10);
+    ctx.lineTo(-18, 12);
+    ctx.closePath();
+    ctx.fill();
+
+    // Canopy glass with specular highlight
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(0, -3, 6, 0, Math.PI * 2);
+    ctx.ellipse(0, -4, 5, 8, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.restore();

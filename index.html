@@ -6,184 +6,361 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#070314" />
+    <meta name="theme-color" content="#090414" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Beat Runner - Rhythm Endless Highway</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Montserrat:wght@700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700;800&family=Fredoka:wght@600;700;800;900&family=Nunito:wght@700;800;900&family=Russo+One&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./src/styles.css" />
   </head>
   <body>
     <div id="app">
-      <!-- 60/120fps Responsive Highway Canvas -->
+      <!-- 60/120fps Responsive Perspective Highway Canvas -->
       <canvas id="game-canvas"></canvas>
 
-      <!-- In-Game HUD -->
+      <!-- ========================================== -->
+      <!-- 1. LIVE 3D LOBBY (Overlay-Live Home Screen) -->
+      <!-- ========================================== -->
+      <div id="lobby-screen" class="screen-overlay active">
+        <!-- Top Status Bar: Rank, High Score, Coins, Sound, Calibrate -->
+        <header class="lobby-header">
+          <div class="lobby-header-left">
+            <div class="arcade-pill rank-pill" id="lobby-rank-pill">
+              <span class="pill-icon" id="icon-rank-crown"></span>
+              <div class="pill-col">
+                <span class="pill-label">RHYTHM RANK</span>
+                <span class="pill-value" id="lobby-rank-val">PRO • LVL 1</span>
+              </div>
+            </div>
+
+            <div class="arcade-pill record-pill">
+              <span class="pill-icon" id="icon-high-trophy"></span>
+              <div class="pill-col">
+                <span class="pill-label">BEST STREAK</span>
+                <span class="pill-value" id="lobby-best-streak">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="lobby-header-right">
+            <div class="arcade-pill coin-pill">
+              <span class="pill-icon coin-icon-spin" id="icon-lobby-coin"></span>
+              <span class="coin-val" id="lobby-coin-count">0</span>
+            </div>
+
+            <button class="arcade-icon-btn" id="btn-quick-calibrate" aria-label="Audio Latency Calibrator" title="Audio Calibrator">
+              <span id="icon-lobby-calibrate"></span>
+              <span class="sub-label" id="lobby-offset-label">0ms</span>
+            </button>
+
+            <button class="arcade-icon-btn" id="btn-quick-audio" aria-label="Toggle Sound" title="Toggle Sound">
+              <span id="icon-lobby-sound"></span>
+            </button>
+          </div>
+        </header>
+
+        <!-- Center 3D Arcade Title Logo -->
+        <div class="lobby-hero">
+          <div class="logo-wrapper">
+            <h1 class="arcade-logo">
+              <span class="logo-beat">BEAT</span>
+              <span class="logo-runner">RUNNER</span>
+            </h1>
+            <div class="logo-badge" id="lobby-active-genre-badge">SYNTHWAVE • 116 BPM</div>
+          </div>
+        </div>
+
+        <!-- Bottom Arcade Dock & Giant Tactile Play Button (Subway Surfers Style) -->
+        <footer class="lobby-footer">
+          <div class="lobby-dock">
+            <button class="dock-tab-btn" id="btn-tab-worlds">
+              <span class="tab-icon" id="icon-tab-worlds"></span>
+              <span class="tab-text">WORLDS</span>
+            </button>
+
+            <button class="dock-tab-btn" id="btn-tab-garage">
+              <span class="tab-icon" id="icon-tab-garage"></span>
+              <span class="tab-text">GARAGE</span>
+              <span class="tab-badge" id="garage-badge-count">5</span>
+            </button>
+
+            <button class="dock-tab-btn" id="btn-tab-dojo">
+              <span class="tab-icon" id="icon-tab-dojo"></span>
+              <span class="tab-text">DOJO</span>
+            </button>
+          </div>
+
+          <div class="lobby-play-cta">
+            <button class="btn-arcade-play" id="btn-play-endless">
+              <div class="play-btn-content">
+                <span class="play-icon" id="icon-play-giant"></span>
+                <div class="play-text-col">
+                  <span class="play-main-text">PLAY!</span>
+                  <span class="play-sub-text">ENDLESS ODYSSEY</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </footer>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 2. IN-GAME ARCADE HUD (Strict <12% Budget)  -->
+      <!-- ========================================== -->
       <div id="game-hud" class="ui-layer">
-        <div class="hud-top-bar">
-          <div class="hud-stat-group">
-            <span class="hud-label">Score</span>
-            <div id="hud-score" class="hud-score-val">0</div>
-          </div>
+        <!-- Top Left: Pause Button + Groove Energy Bar -->
+        <div class="hud-top-left">
+          <button class="arcade-icon-btn pause-btn" id="btn-pause-game" aria-label="Pause Game">
+            <span id="icon-hud-pause"></span>
+          </button>
 
-          <div class="hud-stat-group" style="align-items: center">
-            <span class="hud-label">Streak</span>
-            <div>
-              <span id="hud-combo" class="hud-combo-val">0</span>
-              <span id="hud-multiplier" class="hud-multiplier-pill">1x</span>
+          <div class="groove-capsule">
+            <div class="groove-header">
+              <span class="groove-title">
+                <span class="groove-flame-icon" id="icon-groove-flame"></span>
+                GROOVE
+              </span>
+              <span class="groove-val-text" id="hud-groove-text">20%</span>
             </div>
-          </div>
-
-          <div class="hud-genre-badge">
-            <span id="hud-genre-name" class="genre-title">Synthwave</span>
-            <span id="hud-bpm" class="bpm-ticker">116 BPM</span>
-          </div>
-        </div>
-
-        <!-- Groove Energy Meter -->
-        <div class="groove-meter-container">
-          <div class="groove-label-row">
-            <span style="color: var(--color-primary)">Groove Meter</span>
-            <span id="groove-text" style="color: var(--color-secondary)">20%</span>
-          </div>
-          <div class="groove-track">
-            <div id="groove-fill" class="groove-fill"></div>
-          </div>
-          <!-- Micro-timing feedback needle -->
-          <div class="timing-needle-box">
-            <span id="timing-label" class="timing-text">Strike Bar Ready</span>
-            <div class="timing-bar">
-              <div id="timing-marker" class="timing-marker"></div>
+            <div class="groove-bar-outer">
+              <div class="groove-bar-inner" id="hud-groove-fill"></div>
+            </div>
+            <div class="groove-stems-row">
+              <span class="stem-chip active" id="stem-1">KICK</span>
+              <span class="stem-chip" id="stem-2">SNARE</span>
+              <span class="stem-chip" id="stem-3">BASS</span>
+              <span class="stem-chip" id="stem-4">LEAD</span>
             </div>
           </div>
         </div>
 
-        <!-- Mobile Touch Guides (visible when touch interaction is detected) -->
-        <div class="mobile-controls">
-          <div class="mobile-lane-indicators">
-            <div class="mobile-lane-zone" id="touch-lane-0">◀ Left</div>
-            <div class="mobile-lane-zone" id="touch-lane-1">Center</div>
-            <div class="mobile-lane-zone" id="touch-lane-2">Right ▶</div>
-          </div>
-          <div class="mobile-action-zone">
-            <button id="mobile-pulse-btn" class="pulse-btn interactive">⚡ BEAT PULSE / JUMP</button>
+        <!-- Top Center: Genre Capsule Banner -->
+        <div class="hud-top-center">
+          <div class="genre-capsule" id="hud-genre-capsule">
+            <span class="genre-text" id="hud-genre-name">NEON SYNTHWAVE</span>
+            <span class="genre-bpm" id="hud-bpm">116 BPM</span>
           </div>
         </div>
-      </div>
 
-      <!-- Start Menu Screen -->
-      <div id="menu-screen" class="screen-container active">
-        <div class="menu-card glass-panel interactive">
-          <h1 class="game-logo">Beat Runner</h1>
-          <p class="game-tagline">
-            Navigate the musical highway, collect beat notes, leap over dissonance barriers, and master shifting rhythmic genres.
-          </p>
-
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 6px">
-            <button id="btn-play-endless" class="btn btn-primary">
-              🚀 Play Endless Odyssey (Genre Shift)
-            </button>
-            <button id="btn-open-stages" class="btn btn-secondary">
-              🎵 Select Genre Stage
-            </button>
-            <button id="btn-pulse-dojo" class="btn btn-secondary">
-              🥋 Pulse Dojo (Ear & Internal Clock)
-            </button>
-          </div>
-
-          <!-- Genre Selection Drawer (hidden by default) -->
-          <div id="genre-select-container" style="display: none; flex-direction: column; gap: 8px">
-            <span class="hud-label" style="text-align: left">Select Genre to Master:</span>
-            <div class="genre-grid" id="genre-grid-items">
-              <!-- Dynamically populated -->
+        <!-- Top Right: Score Odometer + Star Multiplier Shield + Coins -->
+        <div class="hud-top-right">
+          <div class="hud-score-card">
+            <div class="score-row">
+              <div class="multiplier-star-badge" id="hud-multiplier-badge">
+                <span class="star-icon" id="icon-hud-star"></span>
+                <span class="mult-num" id="hud-multiplier">1x</span>
+              </div>
+              <div class="score-odometer" id="hud-score">000,000</div>
             </div>
-            <button id="btn-start-stage" class="btn btn-accent" style="margin-top: 4px">
-              ▶ Start Selected Stage
-            </button>
-          </div>
 
-          <div class="controls-hint">
-            <span><span class="key-pill">A / D / ◀ ▶</span> Steer Lanes</span>
-            <span><span class="key-pill">Space / W / ▲</span> Jump</span>
-            <span><span class="key-pill">S / ▼</span> Pulse</span>
-          </div>
-
-          <div style="display: flex; justify-content: center; gap: 16px; margin-top: 4px">
-            <button id="btn-open-calibrate" class="btn btn-secondary" style="font-size: 12px; padding: 8px 14px">
-              ⏱ Audio Calibrator (<span id="menu-offset-label">0ms</span>)
-            </button>
+            <div class="coins-earned-pill">
+              <span class="coin-icon-small" id="icon-hud-coin"></span>
+              <span class="coin-session-val" id="hud-session-coins">+0</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <!-- Latency Calibrator Screen -->
-      <div id="calibrate-screen" class="screen-container">
-        <div class="menu-card glass-panel interactive">
-          <h2 style="font-family: var(--font-display); font-size: 24px; color: var(--color-secondary)">
-            Audio & Input Calibration
-          </h2>
-          <p style="font-size: 13px; color: var(--color-text-dim)">
-            Bluetooth earphones or mobile audio systems often introduce a slight delay. Tap the pad in time with the rhythmic pulse to auto-synchronize!
-          </p>
-
-          <div id="calibrator-pad" class="calibrator-tap-area">
-            TAP ON THE BEAT (0/8)
-          </div>
-
-          <div class="calibration-slider-row">
-            <span class="hud-label">Manual Offset:</span>
-            <input type="range" id="latency-slider" min="-100" max="150" step="5" value="0" />
-            <span id="latency-slider-val" style="font-weight: 800; min-width: 50px">0ms</span>
-          </div>
-
-          <button id="btn-save-calibrate" class="btn btn-primary" style="margin-top: 8px">
-            Save & Return
+        <!-- Mobile Touch Trigger Zone (Subtle Bottom-Right Jump Action) -->
+        <div class="mobile-action-overlay">
+          <button class="btn-arcade-jump" id="mobile-pulse-btn" aria-label="Beat Jump / Pulse">
+            <span id="icon-mobile-jump"></span>
+            <span>JUMP</span>
           </button>
         </div>
       </div>
 
-      <!-- Post-Run Musical Diagnostics Screen -->
-      <div id="gameover-screen" class="screen-container">
-        <div class="menu-card glass-panel interactive">
-          <span class="hud-label">Run Analysis</span>
-          <div id="diag-rank" class="rank-badge">S</div>
-          <h2 id="diag-score" style="font-family: var(--font-display); font-size: 30px; color: #fff">
-            0 PTS
-          </h2>
-          <p id="diag-genre-mastery" style="font-size: 12px; color: var(--color-accent); font-weight: 600">
-            Neon Synthwave Mastery
+      <!-- ========================================== -->
+      <!-- 3. BEAT-SYNCED 3-2-1 COUNTDOWN OVERLAY     -->
+      <!-- ========================================== -->
+      <div id="countdown-overlay" class="screen-modal">
+        <div class="countdown-digit" id="countdown-text">3</div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 4. WORLDS MODAL (Genre Stage Select)       -->
+      <!-- ========================================== -->
+      <div id="modal-worlds" class="screen-modal">
+        <div class="arcade-card">
+          <div class="modal-header">
+            <h2 class="modal-title">
+              <span class="modal-title-icon" id="icon-modal-worlds"></span>
+              SELECT GENRE STAGE
+            </h2>
+            <button class="btn-modal-close" id="btn-close-worlds" aria-label="Close">
+              <span id="icon-close-worlds"></span>
+            </button>
+          </div>
+
+          <p class="modal-description">
+            Each genre transforms the musical world, tempo, subdivision feel, and rhythmic obstacles.
           </p>
 
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-title">Timing Accuracy</span>
-              <span id="diag-accuracy" class="stat-value">94%</span>
+          <div class="worlds-carousel" id="worlds-grid">
+            <!-- Dynamically populated with 5 genre cards -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 5. GARAGE MODAL (Subway Surfers Skins)     -->
+      <!-- ========================================== -->
+      <div id="modal-garage" class="screen-modal">
+        <div class="arcade-card">
+          <div class="modal-header">
+            <h2 class="modal-title">
+              <span class="modal-title-icon" id="icon-modal-garage"></span>
+              HOVERCRAFT GARAGE
+            </h2>
+            <div class="garage-header-coins">
+              <span class="coin-icon-spin" id="icon-garage-coin"></span>
+              <span id="garage-coin-count">0</span>
             </div>
-            <div class="stat-item">
-              <span class="stat-title">Max Beat Streak</span>
-              <span id="diag-maxcombo" class="stat-value">48</span>
+            <button class="btn-modal-close" id="btn-close-garage" aria-label="Close">
+              <span id="icon-close-garage"></span>
+            </button>
+          </div>
+
+          <p class="modal-description">
+            Spend Beat Coins collected in runs to unlock and equip custom aerodynamic hovercrafts!
+          </p>
+
+          <div class="skins-grid" id="garage-skins-grid">
+            <!-- Dynamically populated with 5 hovercraft skins -->
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 6. DOJO & CALIBRATOR MODAL                 -->
+      <!-- ========================================== -->
+      <div id="modal-dojo" class="screen-modal">
+        <div class="arcade-card">
+          <div class="modal-header">
+            <h2 class="modal-title">
+              <span class="modal-title-icon" id="icon-modal-dojo"></span>
+              RHYTHM DOJO & CALIBRATION
+            </h2>
+            <button class="btn-modal-close" id="btn-close-dojo" aria-label="Close">
+              <span id="icon-close-dojo"></span>
+            </button>
+          </div>
+
+          <div class="dojo-sections">
+            <div class="dojo-block">
+              <h3 class="dojo-subtitle">Ear & Timing Drills</h3>
+              <div style="display: flex; gap: 10px; margin-top: 8px">
+                <button class="btn-arcade-action" id="btn-start-pulse-dojo">
+                  <span id="icon-dojo-train"></span>
+                  START PULSE TRAINING
+                </button>
+              </div>
             </div>
-            <div class="stat-item">
-              <span class="stat-title">Average Offset</span>
-              <span id="diag-meandelta" class="stat-value">+6ms Late</span>
+
+            <div class="dojo-block">
+              <h3 class="dojo-subtitle">Audio Latency Metronome</h3>
+              <p class="modal-description">
+                Tap the pad in sync with the 120 BPM metronome click to calibrate Bluetooth earphone delay.
+              </p>
+              <div class="calibrator-pad-3d" id="calibrator-pad">
+                TAP TO THE BEAT (0/8)
+              </div>
+              <div class="slider-row">
+                <span class="hud-label">Manual Offset:</span>
+                <input type="range" id="latency-slider" min="-100" max="150" step="5" value="0" />
+                <span class="slider-badge" id="latency-slider-val">0ms</span>
+              </div>
             </div>
-            <div class="stat-item">
-              <span class="stat-title">Perfect / Great / Miss</span>
-              <span id="diag-breakdown" class="stat-value">32 / 12 / 1</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 7. PAUSE OVERLAY MODAL                     -->
+      <!-- ========================================== -->
+      <div id="modal-pause" class="screen-modal">
+        <div class="arcade-card modal-compact">
+          <h2 class="pause-title">GAME PAUSED</h2>
+
+          <div class="pause-btn-stack">
+            <button class="btn-arcade-play" id="btn-resume-run">
+              <span id="icon-pause-resume"></span>
+              RESUME RUN
+            </button>
+            <button class="btn-arcade-action" id="btn-restart-from-pause">
+              <span id="icon-pause-restart"></span>
+              RESTART
+            </button>
+            <button class="btn-arcade-secondary" id="btn-quit-to-lobby">
+              <span id="icon-pause-home"></span>
+              EXIT TO LOBBY
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- 8. POST-RUN TROPHY PODIUM (Game Over)      -->
+      <!-- ========================================== -->
+      <div id="modal-gameover" class="screen-modal">
+        <div class="arcade-card podium-card">
+          <span class="podium-eyebrow">RUN COMPLETED!</span>
+
+          <!-- Animated Rank Badge with 3D Stars -->
+          <div class="rank-container">
+            <div class="rank-stars-row" id="podium-stars">
+              <span class="star-icon"></span>
+              <span class="star-icon"></span>
+              <span class="star-icon"></span>
+            </div>
+            <div class="rank-badge-3d" id="diag-rank">S</div>
+          </div>
+
+          <div class="score-callout">
+            <span class="score-label">FINAL SCORE</span>
+            <div class="score-big" id="diag-score">0 PTS</div>
+            <div class="new-record-pill" id="diag-new-record" style="display: none">NEW BEST RECORD!</div>
+          </div>
+
+          <!-- Coins Earned Loot Badge -->
+          <div class="coins-earned-banner">
+            <span class="coin-icon-spin" id="icon-diag-coin"></span>
+            <span class="coins-tally" id="diag-coins">+0 BEAT COINS EARNED</span>
+          </div>
+
+          <!-- Performance Diagnostics Grid -->
+          <div class="stats-podium-grid">
+            <div class="podium-stat">
+              <span class="stat-name">ACCURACY</span>
+              <span class="stat-num" id="diag-accuracy">96%</span>
+            </div>
+            <div class="podium-stat">
+              <span class="stat-name">MAX STREAK</span>
+              <span class="stat-num" id="diag-maxcombo">52</span>
+            </div>
+            <div class="podium-stat">
+              <span class="stat-name">MEAN OFFSET</span>
+              <span class="stat-num" id="diag-meandelta">+4ms</span>
+            </div>
+            <div class="podium-stat">
+              <span class="stat-name">P / G / M</span>
+              <span class="stat-num" id="diag-breakdown">38 / 4 / 0</span>
             </div>
           </div>
 
-          <div style="display: flex; gap: 10px; margin-top: 8px">
-            <button id="btn-restart-run" class="btn btn-primary" style="flex: 1">
-              🔄 Play Again
+          <!-- Bottom Button Stack -->
+          <div class="podium-actions">
+            <button class="btn-arcade-play" id="btn-restart-run">
+              <span id="icon-diag-replay"></span>
+              PLAY AGAIN
             </button>
-            <button id="btn-return-menu" class="btn btn-secondary" style="flex: 1">
-              🏠 Menu
+            <button class="btn-arcade-secondary" id="btn-return-lobby">
+              <span id="icon-diag-home"></span>
+              LOBBY
             </button>
           </div>
         </div>

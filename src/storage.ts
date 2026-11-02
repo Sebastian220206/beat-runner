@@ -1,10 +1,11 @@
-// Beat Runner - LocalStorage Persistent Settings & High Scores
+// Beat Runner - LocalStorage Persistent Settings, Beat Coins & Hovercraft Garage
 
 export interface GenreRecord {
   highScore: number;
   maxCombo: number;
   bestAccuracy: number;
   runsCount: number;
+  bestRank?: 'S+' | 'S' | 'A' | 'B' | 'C';
 }
 
 export interface UserSettings {
@@ -22,11 +23,78 @@ export interface GameStats {
   totalGreats: number;
   totalGoods: number;
   totalMisses: number;
+  totalCoinsEarned: number;
 }
+
+export interface HovercraftSkin {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  primaryColor: string;
+  secondaryColor: string;
+  glowColor: string;
+  trailColor: string;
+}
+
+export const AVAILABLE_SKINS: HovercraftSkin[] = [
+  {
+    id: 'interceptor',
+    name: 'Outrun Interceptor',
+    description: 'Classic synthwave cybercraft with neon cyan hull and magenta thrusters.',
+    cost: 0,
+    primaryColor: '#00f3ff',
+    secondaryColor: '#ff007f',
+    glowColor: '#00ffffaa',
+    trailColor: '#00f3ff',
+  },
+  {
+    id: 'funk_cruiser',
+    name: 'Gold Funk Cruiser',
+    description: 'Gold-plated 16th-groove glider with electric violet shock absorb.',
+    cost: 250,
+    primaryColor: '#ffd700',
+    secondaryColor: '#8a2be2',
+    glowColor: '#ffaa00aa',
+    trailColor: '#fbbf24',
+  },
+  {
+    id: 'blue_phantom',
+    name: 'Blue Note Phantom',
+    description: 'Swung midnight brass craft tuned for silky-smooth triplet cornering.',
+    cost: 500,
+    primaryColor: '#60a5fa',
+    secondaryColor: '#f5d77f',
+    glowColor: '#3b82f6aa',
+    trailColor: '#93c5fd',
+  },
+  {
+    id: 'emerald_viper',
+    name: 'Emerald Viper',
+    description: 'Bioluminescent polyrhythmic racer from the tropical clave biome.',
+    cost: 800,
+    primaryColor: '#00e676',
+    secondaryColor: '#ff5722',
+    glowColor: '#00ff88aa',
+    trailColor: '#34d399',
+  },
+  {
+    id: 'cyber_wing',
+    name: 'Cyber Glitch Wing',
+    description: 'High-velocity 170 BPM breakbeat interceptor with dual crimson afterburners.',
+    cost: 1200,
+    primaryColor: '#39ff14',
+    secondaryColor: '#ff0055',
+    glowColor: '#39ff14aa',
+    trailColor: '#f43f5e',
+  },
+];
 
 const SETTINGS_KEY = 'beat_runner_settings';
 const RECORDS_KEY = 'beat_runner_records';
 const STATS_KEY = 'beat_runner_stats';
+const COINS_KEY = 'beat_runner_coins';
+const GARAGE_KEY = 'beat_runner_garage';
 
 const DEFAULT_SETTINGS: UserSettings = {
   audioOffsetMs: 0,
@@ -43,38 +111,60 @@ const DEFAULT_STATS: GameStats = {
   totalGreats: 0,
   totalGoods: 0,
   totalMisses: 0,
+  totalCoinsEarned: 0,
 };
+
+function safeGetItem(key: string): string | null {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      return localStorage.getItem(key);
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
+
+function safeSetItem(key: string, val: string): void {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(key, val);
+    }
+  } catch {
+    // fallback
+  }
+}
 
 export class StorageManager {
   private settings: UserSettings;
   private records: Record<string, GenreRecord>;
   private stats: GameStats;
+  private coins = 0;
+  private equippedSkinId = 'interceptor';
+  private unlockedSkinIds: string[] = ['interceptor'];
 
   constructor() {
     this.settings = this.loadSettings();
     this.records = this.loadRecords();
     this.stats = this.loadStats();
+    this.loadEconomyAndGarage();
   }
 
   private loadSettings(): UserSettings {
-    try {
-      const raw = localStorage.getItem(SETTINGS_KEY);
-      if (raw) {
+    const raw = safeGetItem(SETTINGS_KEY);
+    if (raw) {
+      try {
         return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      } catch {
+        // fallback
       }
-    } catch (e) {
-      console.warn('Could not read settings from localStorage', e);
     }
     return { ...DEFAULT_SETTINGS };
   }
 
   public saveSettings(newSettings: Partial<UserSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
-    try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
-    } catch (e) {
-      console.warn('Could not save settings to localStorage', e);
-    }
+    safeSetItem(SETTINGS_KEY, JSON.stringify(this.settings));
   }
 
   public getSettings(): UserSettings {
@@ -82,13 +172,13 @@ export class StorageManager {
   }
 
   private loadRecords(): Record<string, GenreRecord> {
-    try {
-      const raw = localStorage.getItem(RECORDS_KEY);
-      if (raw) {
+    const raw = safeGetItem(RECORDS_KEY);
+    if (raw) {
+      try {
         return JSON.parse(raw);
+      } catch {
+        // fallback
       }
-    } catch (e) {
-      console.warn('Could not read records from localStorage', e);
     }
     return {};
   }
@@ -100,6 +190,7 @@ export class StorageManager {
         maxCombo: 0,
         bestAccuracy: 0,
         runsCount: 0,
+        bestRank: undefined,
       }
     );
   }
@@ -108,7 +199,8 @@ export class StorageManager {
     genreOrMode: string,
     score: number,
     combo: number,
-    accuracy: number
+    accuracy: number,
+    rank?: 'S+' | 'S' | 'A' | 'B' | 'C'
   ): { isNewHighScore: boolean; isNewBestAccuracy: boolean } {
     const existing = this.getRecord(genreOrMode);
     const isNewHighScore = score > existing.highScore;
@@ -119,25 +211,21 @@ export class StorageManager {
       maxCombo: Math.max(existing.maxCombo, combo),
       bestAccuracy: Math.max(existing.bestAccuracy, accuracy),
       runsCount: existing.runsCount + 1,
+      bestRank: rank || existing.bestRank,
     };
 
-    try {
-      localStorage.setItem(RECORDS_KEY, JSON.stringify(this.records));
-    } catch (e) {
-      console.warn('Could not save records to localStorage', e);
-    }
-
+    safeSetItem(RECORDS_KEY, JSON.stringify(this.records));
     return { isNewHighScore, isNewBestAccuracy };
   }
 
   private loadStats(): GameStats {
-    try {
-      const raw = localStorage.getItem(STATS_KEY);
-      if (raw) {
+    const raw = safeGetItem(STATS_KEY);
+    if (raw) {
+      try {
         return { ...DEFAULT_STATS, ...JSON.parse(raw) };
+      } catch {
+        // fallback
       }
-    } catch (e) {
-      console.warn('Could not read stats from localStorage', e);
     }
     return { ...DEFAULT_STATS };
   }
@@ -149,16 +237,100 @@ export class StorageManager {
     this.stats.totalGreats += statsDelta.totalGreats || 0;
     this.stats.totalGoods += statsDelta.totalGoods || 0;
     this.stats.totalMisses += statsDelta.totalMisses || 0;
+    this.stats.totalCoinsEarned += statsDelta.totalCoinsEarned || 0;
 
-    try {
-      localStorage.setItem(STATS_KEY, JSON.stringify(this.stats));
-    } catch (e) {
-      console.warn('Could not save stats to localStorage', e);
-    }
+    safeSetItem(STATS_KEY, JSON.stringify(this.stats));
   }
 
   public getStats(): GameStats {
     return { ...this.stats };
+  }
+
+  // --- Beat Coins & Garage Economy ---
+
+  private loadEconomyAndGarage(): void {
+    const storedCoins = safeGetItem(COINS_KEY);
+    if (storedCoins !== null) {
+      this.coins = Math.max(0, parseInt(storedCoins, 10) || 0);
+    } else {
+      this.coins = 50; // Starter coins gift
+    }
+
+    const storedGarage = safeGetItem(GARAGE_KEY);
+    if (storedGarage) {
+      try {
+        const parsed = JSON.parse(storedGarage);
+        if (parsed.equippedSkinId) this.equippedSkinId = parsed.equippedSkinId;
+        if (Array.isArray(parsed.unlockedSkinIds)) {
+          this.unlockedSkinIds = Array.from(new Set(['interceptor', ...parsed.unlockedSkinIds]));
+        }
+      } catch {
+        // fallback
+      }
+    }
+  }
+
+  private saveGarage(): void {
+    safeSetItem(
+      GARAGE_KEY,
+      JSON.stringify({
+        equippedSkinId: this.equippedSkinId,
+        unlockedSkinIds: this.unlockedSkinIds,
+      })
+    );
+  }
+
+  public getCoins(): number {
+    return this.coins;
+  }
+
+  public addCoins(amount: number): number {
+    if (amount <= 0) return this.coins;
+    this.coins += amount;
+    this.incrementStats({ totalCoinsEarned: amount });
+    safeSetItem(COINS_KEY, this.coins.toString());
+    return this.coins;
+  }
+
+  public spendCoins(amount: number): boolean {
+    if (amount <= 0) return true;
+    if (this.coins < amount) return false;
+    this.coins -= amount;
+    safeSetItem(COINS_KEY, this.coins.toString());
+    return true;
+  }
+
+  public getEquippedSkin(): HovercraftSkin {
+    const skin = AVAILABLE_SKINS.find((s) => s.id === this.equippedSkinId);
+    return skin || AVAILABLE_SKINS[0];
+  }
+
+  public getUnlockedSkinIds(): string[] {
+    return [...this.unlockedSkinIds];
+  }
+
+  public isSkinUnlocked(skinId: string): boolean {
+    return this.unlockedSkinIds.includes(skinId);
+  }
+
+  public equipSkin(skinId: string): boolean {
+    if (!this.isSkinUnlocked(skinId)) return false;
+    this.equippedSkinId = skinId;
+    this.saveGarage();
+    return true;
+  }
+
+  public unlockSkin(skinId: string): boolean {
+    const skin = AVAILABLE_SKINS.find((s) => s.id === skinId);
+    if (!skin) return false;
+    if (this.isSkinUnlocked(skinId)) return true;
+    if (this.spendCoins(skin.cost)) {
+      this.unlockedSkinIds.push(skinId);
+      this.equippedSkinId = skinId;
+      this.saveGarage();
+      return true;
+    }
+    return false;
   }
 }
 

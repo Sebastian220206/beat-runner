@@ -65,6 +65,7 @@ export interface PerformanceDiagnostics {
   accuracyPercent: number;
   maxCombo: number;
   finalScore: number;
+  sessionCoins: number;
   rank: 'S+' | 'S' | 'A' | 'B' | 'C';
   genreMastery: string;
 }
@@ -82,12 +83,13 @@ export class GameManager {
   public jumpProgress = 0; // 0 to 1
   public isFever = false;
 
-  // Metrics & Groove
+  // Metrics, Coins & Groove
   public score = 0;
   public combo = 0;
   public maxCombo = 0;
   public multiplier = 1;
   public grooveMeter = 0; // 0 to 100
+  public sessionCoins = 0;
 
   // Diagnostics Tracking
   public perfectCount = 0;
@@ -114,6 +116,7 @@ export class GameManager {
   // Callbacks for UI updates
   public onJudgment: ((result: JudgmentResult, lane: number) => void) | null = null;
   public onScoreChange: ((score: number, combo: number, groove: number, mult: number) => void) | null = null;
+  public onCoinEarned: ((totalSessionCoins: number, delta: number) => void) | null = null;
   public onGenreChange: ((genre: GenreTheme) => void) | null = null;
   public onGameOver: ((diagnostics: PerformanceDiagnostics) => void) | null = null;
 
@@ -145,6 +148,7 @@ export class GameManager {
     this.maxCombo = 0;
     this.multiplier = 1;
     this.grooveMeter = 20;
+    this.sessionCoins = 0;
 
     this.perfectCount = 0;
     this.greatCount = 0;
@@ -187,7 +191,8 @@ export class GameManager {
     this.state = 'GAME_OVER';
     audio.stopPlayback();
     const diagnostics = this.computeDiagnostics();
-    storage.recordRun(this.currentGenre.id, this.score, this.maxCombo, diagnostics.accuracyPercent);
+    storage.recordRun(this.currentGenre.id, this.score, this.maxCombo, diagnostics.accuracyPercent, diagnostics.rank);
+    storage.addCoins(this.sessionCoins);
     storage.incrementStats({
       totalRuns: 1,
       totalNotesHit: this.perfectCount + this.greatCount + this.goodCount,
@@ -556,6 +561,13 @@ export class GameManager {
     note.active = false;
     audio.playNotePickup(note.lane, result.rating as 'PERFECT' | 'GREAT' | 'GOOD');
     input.triggerHaptic(15);
+
+    const coinReward = (result.rating === 'PERFECT' ? 3 : result.rating === 'GREAT' ? 2 : 1) * (this.isFever ? 2 : 1);
+    this.sessionCoins += coinReward;
+    if (this.onCoinEarned) {
+      this.onCoinEarned(this.sessionCoins, coinReward);
+    }
+
     this.processJudgment(result, note.lane);
   }
 
@@ -660,6 +672,7 @@ export class GameManager {
       accuracyPercent,
       maxCombo: this.maxCombo,
       finalScore: this.score,
+      sessionCoins: this.sessionCoins,
       rank,
       genreMastery: `${this.currentGenre.name} (${this.currentGenre.skillFocus})`,
     };

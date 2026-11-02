@@ -25,7 +25,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // 4. Connect Game Engine Events to Renderer & UI
   game.onJudgment = (result, lane) => {
     renderer.addJudgmentPopup(result, lane);
-    ui.updateTimingNeedle(result);
+    ui.updateTimingNeedle();
     if (result.rating === 'PERFECT') {
       renderer.triggerShockwave();
     }
@@ -33,6 +33,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   game.onScoreChange = (score, combo, groove, multiplier) => {
     ui.updateHUD(score, combo, groove, multiplier);
+  };
+
+  game.onCoinEarned = (totalCoins) => {
+    ui.updateSessionCoins(totalCoins);
   };
 
   game.onGenreChange = (genre) => {
