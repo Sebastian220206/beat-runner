@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { storage, AVAILABLE_SKINS } from '../src/storage.ts';
+import { storage, AVAILABLE_SKINS, AVAILABLE_INSTRUMENTS } from '../src/storage.ts';
 
 // In-memory localStorage mock for node test runner
 const memoryStorage = new Map<string, string>();
@@ -62,5 +62,20 @@ describe('Beat Coins & Hovercraft Garage Economy', () => {
     const equipped = storage.equipSkin('interceptor');
     expect(equipped).toBe(true);
     expect(storage.getEquippedSkin().id).toBe('interceptor');
+  });
+
+  it('provides 6 selectable magical instruments for Beat', () => {
+    expect(AVAILABLE_INSTRUMENTS.map((i) => i.id)).toEqual([
+      'piano',
+      'synth',
+      'guitar',
+      'marimba',
+      'flute',
+      'bells',
+    ]);
+    storage.equipInstrument('marimba');
+    expect(storage.getEquippedInstrument().id).toBe('marimba');
+    storage.equipInstrument('piano');
+    expect(storage.getEquippedInstrument().id).toBe('piano');
   });
 });

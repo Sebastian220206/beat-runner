@@ -1,9 +1,8 @@
-// Beat Runner - Subway Surfers Arcade UI Manager
-// Powered by ui-ux-pro-max & Claude-Code-Game-Studios specifications
+// Beat Runner - Subway Surfers Musical Chase Arcade UI Manager
 
 import { game, PerformanceDiagnostics } from './game.ts';
 import { GENRES, GenreId, GENRE_ORDER, GenreTheme } from './genres.ts';
-import { storage, AVAILABLE_SKINS } from './storage.ts';
+import { storage, AVAILABLE_SKINS, AVAILABLE_INSTRUMENTS } from './storage.ts';
 import { input } from './input.ts';
 import { audio } from './audio.ts';
 import { ICONS } from './icons.ts';
@@ -36,6 +35,11 @@ export class UIManager {
   private hudBpm!: HTMLElement;
   private hudGrooveText!: HTMLElement;
   private hudGrooveFill!: HTMLElement;
+  private hudSequenceName!: HTMLElement;
+  private hudSequenceNotes!: HTMLElement;
+  private hudNotesList!: HTMLElement;
+  private hudMissionText!: HTMLElement;
+  private hudTempoRadar!: HTMLElement;
   private stemChips: HTMLElement[] = [];
 
   // Calibrator State
@@ -84,6 +88,11 @@ export class UIManager {
     this.hudBpm = document.getElementById('hud-bpm')!;
     this.hudGrooveText = document.getElementById('hud-groove-text')!;
     this.hudGrooveFill = document.getElementById('hud-groove-fill')!;
+    this.hudSequenceName = document.getElementById('hud-sequence-name')!;
+    this.hudSequenceNotes = document.getElementById('hud-sequence-notes')!;
+    this.hudNotesList = document.getElementById('hud-notes-list')!;
+    this.hudMissionText = document.getElementById('hud-mission-text')!;
+    this.hudTempoRadar = document.getElementById('hud-tempo-radar')!;
 
     this.stemChips = [
       document.getElementById('stem-1')!,
@@ -246,9 +255,13 @@ export class UIManager {
       this.lobbyOffsetLabel.innerText = `${val}ms`;
     });
 
-    // 9. Mobile Jump Button
+    // 9. Mobile Jump & Slide Buttons
     document.getElementById('mobile-pulse-btn')?.addEventListener('click', () => {
       input.handleActionDirectly({ type: 'jump', timestamp: performance.now() });
+    });
+
+    document.getElementById('mobile-slide-btn')?.addEventListener('click', () => {
+      input.handleActionDirectly({ type: 'slide', timestamp: performance.now() });
     });
   }
 
@@ -260,10 +273,11 @@ export class UIManager {
 
     const synthRecord = storage.getRecord('synthwave');
     this.lobbyBestStreak.innerText = (synthRecord.maxCombo || 0).toString();
-    this.lobbyRankVal.innerText = synthRecord.bestRank ? `RANK ${synthRecord.bestRank}` : 'NOVICE • LVL 1';
+    this.lobbyRankVal.innerText = synthRecord.bestRank
+      ? `RANK ${synthRecord.bestRank}`
+      : 'NOVICE • LVL 1';
 
-    const unlockedCount = storage.getUnlockedSkinIds().length;
-    this.garageBadgeCount.innerText = `${unlockedCount}/${AVAILABLE_SKINS.length}`;
+    this.garageBadgeCount.innerText = `${AVAILABLE_INSTRUMENTS.length}`;
 
     const offset = storage.getSettings().audioOffsetMs;
     this.lobbyOffsetLabel.innerText = `${offset}ms`;
@@ -271,10 +285,9 @@ export class UIManager {
     this.latencySliderVal.innerText = `${offset}ms`;
 
     const g = GENRES[this.selectedStageGenre];
-    this.lobbyActiveGenreBadge.innerText = `${g.name.toUpperCase()} • ${g.bpm} BPM`;
+    const inst = storage.getEquippedInstrument();
+    this.lobbyActiveGenreBadge.innerText = `${g.name.toUpperCase()} • ${g.bpm} BPM • ${inst.name.toUpperCase()}`;
   }
-
-  // --- Modal Navigation ---
 
   private openModal(modal: HTMLElement): void {
     this.closeAllModals();
@@ -301,9 +314,10 @@ export class UIManager {
     this.stopCalibratorMetronome();
   }
 
-  // --- Subway Surfers 3-2-1 Countdown & Game Launch ---
-
-  private async startRunWithCountdown(mode: 'ENDLESS' | 'STAGE' | 'PULSE_DOJO', genreId: GenreId): Promise<void> {
+  private async startRunWithCountdown(
+    mode: 'ENDLESS' | 'STAGE' | 'PULSE_DOJO',
+    genreId: GenreId
+  ): Promise<void> {
     await audio.init();
     this.closeAllModals();
     this.lobbyScreen.classList.remove('active');
@@ -311,14 +325,13 @@ export class UIManager {
 
     game.setMode(mode, genreId);
 
-    // Show beat-synced 3-2-1 countdown overlay
     this.countdownOverlay.classList.add('active');
-    const counts = ['3', '2', '1', 'DROP!'];
+    const counts = ['3', '2', '1', 'PLAY!'];
 
     for (let i = 0; i < counts.length; i++) {
       this.countdownText.innerText = counts[i];
       this.countdownText.style.animation = 'none';
-      void this.countdownText.offsetHeight; // trigger reflow
+      void this.countdownText.offsetHeight;
       this.countdownText.style.animation = 'countdown-pop 0.45s var(--ease-spring)';
 
       if (i < 3) {
@@ -327,7 +340,7 @@ export class UIManager {
         audio.playCountdownGo();
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 520));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     this.countdownOverlay.classList.remove('active');
@@ -343,8 +356,6 @@ export class UIManager {
     this.lobbyScreen.classList.add('active');
     this.updateLobbyTelemetry();
   }
-
-  // --- Worlds Carousel Populator ---
 
   private populateWorldsGrid(): void {
     const container = document.getElementById('worlds-grid');
@@ -385,19 +396,62 @@ export class UIManager {
     }
   }
 
-  // --- Garage Hovercraft Skins Populator ---
-
+  /**
+   * Populates the Studio Modal with Beat's 6 Magical Instruments + 5 Soundboards
+   */
   private populateGarageGrid(): void {
     const container = document.getElementById('garage-skins-grid');
     if (!container) return;
     container.innerHTML = '';
 
+    const equippedInstrument = storage.getEquippedInstrument();
+
+    const instHeader = document.createElement('div');
+    instHeader.className = 'studio-section-title';
+    instHeader.innerText = '🎵 BEAT’S MAGICAL INSTRUMENTS (TAP TO EQUIP & HEAR)';
+    container.appendChild(instHeader);
+
+    for (const inst of AVAILABLE_INSTRUMENTS) {
+      const isSelected = equippedInstrument.id === inst.id;
+      const card = document.createElement('div');
+      card.className = `skin-card ${isSelected ? 'equipped' : ''}`;
+      card.innerHTML = `
+        <div class="skin-info">
+          <div class="skin-name" style="color: ${inst.color}">♪ ${inst.name} <span style="font-size: 11px; opacity: 0.75;">(${inst.subtitle})</span></div>
+          <div class="skin-desc">${inst.description}</div>
+        </div>
+        <div class="skin-actions">
+          ${
+            isSelected
+              ? `<span style="font-family: var(--font-display); font-size: 12px; color: #4ade80; font-weight: 800;">ACTIVE</span>`
+              : `<button class="btn-arcade-action btn-select-inst" data-inst="${inst.id}" style="padding: 6px 14px; font-size: 11px;">SELECT</button>`
+          }
+        </div>
+      `;
+
+      card.addEventListener('click', async () => {
+        await audio.init();
+        storage.equipInstrument(inst.id);
+        audio.playSequenceCompleteChord(['C', 'E', 'G', 'C'], inst.id);
+        this.updateLobbyTelemetry();
+        this.populateGarageGrid();
+      });
+
+      container.appendChild(card);
+    }
+
+    const boardHeader = document.createElement('div');
+    boardHeader.className = 'studio-section-title';
+    boardHeader.style.marginTop = '10px';
+    boardHeader.innerText = '🛹 SOUNDBOARD SKINS';
+    container.appendChild(boardHeader);
+
     const coins = storage.getCoins();
-    const equipped = storage.getEquippedSkin();
+    const equippedSkin = storage.getEquippedSkin();
 
     for (const skin of AVAILABLE_SKINS) {
       const isUnlocked = storage.isSkinUnlocked(skin.id);
-      const isEquipped = equipped.id === skin.id;
+      const isEquipped = equippedSkin.id === skin.id;
 
       const card = document.createElement('div');
       card.className = `skin-card ${isEquipped ? 'equipped' : ''}`;
@@ -412,7 +466,7 @@ export class UIManager {
         actionHtml = `<button class="btn-arcade-action btn-unlock-skin" data-id="${skin.id}" style="padding: 6px 14px; font-size: 11px; ${
           !canAfford ? 'opacity: 0.6;' : ''
         }">
-          🪙 ${skin.cost}
+          ♪ ${skin.cost}
         </button>`;
       }
 
@@ -443,8 +497,6 @@ export class UIManager {
       container.appendChild(card);
     }
   }
-
-  // --- Metronome Latency Calibrator ---
 
   private startCalibratorMetronome(): void {
     this.calibratorTaps = [];
@@ -507,15 +559,59 @@ export class UIManager {
       this.hudGrooveFill.classList.remove('fever');
     }
 
-    // Dynamic Stem Chips
+    // Dynamic Soundtrack Stem Chips
     this.stemChips[0].classList.toggle('active', true);
     this.stemChips[1].classList.toggle('active', groove >= 15);
     this.stemChips[2].classList.toggle('active', groove >= 40);
     this.stemChips[3].classList.toggle('active', groove >= 70);
+
+    // Update Musical Sequence Progress (e.g. C -> E -> G -> C)
+    if (this.hudSequenceName && this.hudSequenceNotes) {
+      this.hudSequenceName.innerText = `${game.activeSequence.name.toUpperCase()}:`;
+      this.hudSequenceNotes.innerHTML = game.activeSequence.notes
+        .map((n, idx) =>
+          idx < game.sequenceStepIndex
+            ? `<span class="seq-note-hit">${n}</span>`
+            : idx === game.sequenceStepIndex
+            ? `<span class="seq-note-next">${n}</span>`
+            : `<span class="seq-note-pending">${n}</span>`
+        )
+        .join(' → ');
+    }
+
+    // Update Notes Collected History (e.g. "C · D · E · G")
+    if (this.hudNotesList) {
+      this.hudNotesList.innerText =
+        game.collectedNotesHistory.length > 0
+          ? game.collectedNotesHistory.join(' · ')
+          : 'COLLECT NOTES!';
+    }
+
+    // Update Active Musical Challenge Mission
+    if (this.hudMissionText) {
+      this.hudMissionText.innerText = `${game.activeMission.title} (${game.missionProgress}/${game.activeMission.targetCount})`;
+    }
+
+    // Update Officer Tempo Chase Radar
+    if (this.hudTempoRadar) {
+      if (game.tempoState === 'lunging') {
+        this.hudTempoRadar.innerText = '🚨 OFFICER TEMPO: DANGER CLOSE!';
+        this.hudTempoRadar.style.color = '#ff1744';
+      } else if (game.tempoState === 'dancing') {
+        this.hudTempoRadar.innerText = '🕺 OFFICER TEMPO: DANCING!';
+        this.hudTempoRadar.style.color = '#00f3ff';
+      } else if (game.tempoState === 'frustrated') {
+        this.hudTempoRadar.innerText = '😤 OFFICER TEMPO: OUTSMARTED!';
+        this.hudTempoRadar.style.color = '#4ade80';
+      } else {
+        this.hudTempoRadar.innerText = '🚔 OFFICER TEMPO: CHASING';
+        this.hudTempoRadar.style.color = '#fbbf24';
+      }
+    }
   }
 
   public updateSessionCoins(totalCoins: number): void {
-    this.hudSessionCoins.innerText = `+${totalCoins}`;
+    this.hudSessionCoins.innerText = `♪ +${totalCoins}`;
   }
 
   public updateGenre(genre: GenreTheme): void {
@@ -526,8 +622,6 @@ export class UIManager {
   public updateTimingNeedle(): void {
     // Handled diegetically on the Canvas highway by GameRenderer!
   }
-
-  // --- Post-Run Trophy Podium Modal ---
 
   public showDiagnostics(diag: PerformanceDiagnostics): void {
     this.hudElement.classList.remove('active');
@@ -544,15 +638,14 @@ export class UIManager {
 
     rankEl.innerText = diag.rank;
     scoreEl.innerText = `${diag.finalScore.toLocaleString()} PTS`;
-    coinsEl.innerText = `+${diag.sessionCoins} BEAT COINS EARNED`;
+    coinsEl.innerText = `+${diag.sessionCoins} MUSICAL NOTES COLLECTED`;
     accEl.innerText = `${diag.accuracyPercent}%`;
-    maxComboEl.innerText = diag.maxCombo.toString();
+    maxComboEl.innerText = `${diag.sequencesCompleted} MELODIES (${diag.maxCombo} STREAK)`;
 
     const sign = diag.meanDeltaMs > 0 ? '+' : '';
     meanDeltaEl.innerText = `${sign}${diag.meanDeltaMs}ms`;
     breakdownEl.innerText = `${diag.perfectCount} / ${diag.greatCount} / ${diag.missCount}`;
 
-    // Stars rating
     let starCount = 1;
     if (diag.rank === 'S+' || diag.rank === 'S') starCount = 3;
     else if (diag.rank === 'A') starCount = 2;

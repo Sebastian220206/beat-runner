@@ -1,8 +1,9 @@
-// Beat Runner - Procedural Multi-Genre Web Audio Engine
-// Self-contained Web Audio synthesis with 4 dynamic stems & precision lookahead scheduling
+// Beat Runner - Procedural Multi-Genre Web Audio Engine & 6-Instrument Pitched Synthesizer
+// Self-contained Web Audio synthesis with 4 dynamic soundtrack layers & precision lookahead scheduling
 
 import { GenreTheme, GENRES, GenreId } from './genres.ts';
-import { intervalToFrequency } from './rhythm.ts';
+import { ChromaticNote, intervalToFrequency, noteNameToFrequency } from './rhythm.ts';
+import { InstrumentId } from './storage.ts';
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
@@ -13,7 +14,7 @@ export class AudioEngine {
   private musicGain: GainNode | null = null;
   private sfxGain: GainNode | null = null;
 
-  // Dynamic Stems (Layers 0..3)
+  // Dynamic Soundtrack Stems (Layers 0..3)
   private stemGains: GainNode[] = [];
 
   // Lookahead Scheduler
@@ -32,7 +33,7 @@ export class AudioEngine {
   // Groove meter (0.0 to 1.0) and fever state
   private grooveLevel = 0.0;
 
-  // Noise Buffer for snares, hi-hats, and synth breath
+  // Noise Buffer for snares, hi-hats, and flute breath
   private noiseBuffer: AudioBuffer | null = null;
 
   constructor() {
@@ -43,7 +44,9 @@ export class AudioEngine {
     if (this.ctx && this.isUnlocked) return;
 
     try {
-      const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new AudioCtxClass();
 
       if (this.ctx.state === 'suspended') {
@@ -59,14 +62,14 @@ export class AudioEngine {
       this.musicGain.connect(this.masterGain);
 
       this.sfxGain = this.ctx.createGain();
-      this.sfxGain.gain.setValueAtTime(0.9, this.ctx.currentTime);
+      this.sfxGain.gain.setValueAtTime(0.92, this.ctx.currentTime);
       this.sfxGain.connect(this.masterGain);
 
       // Create 4 dynamic stems:
-      // Stem 0: Kick & Primary Pulse (always audible)
-      // Stem 1: Snare / Clave / Hi-hats (Groove > 0.2)
-      // Stem 2: Bassline (Groove > 0.45)
-      // Stem 3: Harmony / Lead Arp (Groove > 0.7 - Fever)
+      // Stem 0: Drums / Rhythm Pulse (always audible)
+      // Stem 1: Percussion / Snare / Clave (Groove > 0.15)
+      // Stem 2: Bassline (Groove > 0.40)
+      // Stem 3: Harmony / Solo Lead (Groove > 0.70)
       this.stemGains = [];
       for (let i = 0; i < 4; i++) {
         const gain = this.ctx.createGain();
@@ -84,19 +87,24 @@ export class AudioEngine {
 
   private generateNoiseBuffer(): void {
     if (!this.ctx) return;
-    const bufferSize = this.ctx.sampleRate * 2; // 2 seconds of pink/white noise
+    const bufferSize = this.ctx.sampleRate * 2;
     this.noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
     const output = this.noiseBuffer.getChannelData(0);
-    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    let b0 = 0,
+      b1 = 0,
+      b2 = 0,
+      b3 = 0,
+      b4 = 0,
+      b5 = 0,
+      b6 = 0;
     for (let i = 0; i < bufferSize; i++) {
       const white = Math.random() * 2 - 1;
-      // Pink noise filtering approximation
       b0 = 0.99886 * b0 + white * 0.0555179;
       b1 = 0.99332 * b1 + white * 0.0750759;
-      b2 = 0.96900 * b2 + white * 0.1538520;
-      b3 = 0.86650 * b3 + white * 0.3104856;
-      b4 = 0.55000 * b4 + white * 0.5329522;
-      b5 = -0.7616 * b5 - white * 0.0168980;
+      b2 = 0.969 * b2 + white * 0.153852;
+      b3 = 0.8665 * b3 + white * 0.3104856;
+      b4 = 0.55 * b4 + white * 0.5329522;
+      b5 = -0.7616 * b5 - white * 0.016898;
       output[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362) * 0.11;
       b6 = white * 0.115926;
     }
@@ -122,19 +130,17 @@ export class AudioEngine {
     const t = this.ctx.currentTime;
     const ramp = 0.08;
 
-    // Stem 0: Kick (always full)
     this.stemGains[0].gain.setTargetAtTime(1.0, t, ramp);
 
-    // Stem 1: Snare & Percussion (unmutes above 15% groove)
     const stem1Target = this.grooveLevel >= 0.15 ? 1.0 : Math.max(0.3, this.grooveLevel / 0.15);
     this.stemGains[1].gain.setTargetAtTime(stem1Target, t, ramp);
 
-    // Stem 2: Bassline (unmutes above 40% groove)
-    const stem2Target = this.grooveLevel >= 0.4 ? 1.0 : Math.max(0.0, (this.grooveLevel - 0.15) / 0.25);
+    const stem2Target =
+      this.grooveLevel >= 0.4 ? 1.0 : Math.max(0.0, (this.grooveLevel - 0.15) / 0.25);
     this.stemGains[2].gain.setTargetAtTime(stem2Target, t, ramp);
 
-    // Stem 3: Lead & Shimmer (unmutes above 70% groove - Fever!)
-    const stem3Target = this.grooveLevel >= 0.7 ? 1.0 : Math.max(0.0, (this.grooveLevel - 0.45) / 0.25);
+    const stem3Target =
+      this.grooveLevel >= 0.7 ? 1.0 : Math.max(0.0, (this.grooveLevel - 0.45) / 0.25);
     this.stemGains[3].gain.setTargetAtTime(stem3Target, t, ramp);
   }
 
@@ -142,7 +148,7 @@ export class AudioEngine {
     if (!this.ctx) return;
     this.isPlaying = true;
     this.nextBeatToSchedule = startBeat;
-    this.songStartAudioTime = this.ctx.currentTime - (startBeat * (60 / this.currentBpm));
+    this.songStartAudioTime = this.ctx.currentTime - startBeat * (60 / this.currentBpm);
 
     if (this.schedulerTimerId !== null) {
       window.clearInterval(this.schedulerTimerId);
@@ -168,10 +174,6 @@ export class AudioEngine {
     return sec / (60 / this.currentBpm);
   }
 
-  /**
-   * Main Lookahead Scheduler Loop
-   * Fires every 25ms and schedules beats in advance using Web Audio timeline
-   */
   private scheduleLoop(): void {
     if (!this.ctx || !this.isPlaying) return;
 
@@ -180,7 +182,8 @@ export class AudioEngine {
     const secondsPerBeat = 60 / this.currentBpm;
 
     while (true) {
-      const beatAudioTime = this.songStartAudioTime + (this.nextBeatToSchedule * secondsPerBeat) + this.latencyOffsetSec;
+      const beatAudioTime =
+        this.songStartAudioTime + this.nextBeatToSchedule * secondsPerBeat + this.latencyOffsetSec;
       if (beatAudioTime > scheduleUntilTime) {
         break;
       }
@@ -188,13 +191,10 @@ export class AudioEngine {
       if (beatAudioTime >= currentAudioTime - 0.05) {
         this.scheduleBeat(this.nextBeatToSchedule, beatAudioTime);
       }
-      this.nextBeatToSchedule += 0.5; // Schedule in 8th-note subdivisions
+      this.nextBeatToSchedule += 0.5;
     }
   }
 
-  /**
-   * Schedules drum events and musical stems for a specific 8th-note tick
-   */
   private scheduleBeat(beat: number, time: number): void {
     if (!this.ctx) return;
 
@@ -203,7 +203,6 @@ export class AudioEngine {
     const isDownbeat = Math.floor(beat) === beat;
     const isBarStart = beatInBar === 0;
 
-    // Apply swing offset for offbeat 8ths if genre specifies swing
     let adjustedTime = time;
     if (!isDownbeat && this.currentGenre.swingRatio !== 0.5) {
       const swingDelta = (this.currentGenre.swingRatio - 0.5) * (60 / this.currentBpm);
@@ -212,27 +211,27 @@ export class AudioEngine {
 
     // 1. Kick (Stem 0)
     switch (this.currentGenre.drumStyle) {
-      case 'linn': // Four-on-the-floor
+      case 'linn':
         if (isDownbeat) {
           this.playKick(adjustedTime, isBarStart ? 1.0 : 0.85);
         }
         break;
-      case 'funk': // Kick on 1 and offbeats
+      case 'funk':
         if (beatInBar === 0 || beatInBar === 1.5 || beatInBar === 2.5) {
           this.playKick(adjustedTime, 0.9);
         }
         break;
-      case 'jazz': // Feathered kick on downbeats 0 and 2
+      case 'jazz':
         if (beatInBar === 0 || beatInBar === 2) {
           this.playFeatherKick(adjustedTime, 0.45);
         }
         break;
-      case 'afro': // Tresillo kick: 0, 1.5, 3
+      case 'afro':
         if (beatInBar === 0 || beatInBar === 1.5 || beatInBar === 3) {
           this.playKick(adjustedTime, 0.95);
         }
         break;
-      case 'breakbeat': // Amen kick on 0 and 2.5
+      case 'breakbeat':
         if (beatInBar === 0 || beatInBar === 2.5) {
           this.playSubKick(adjustedTime, 1.0);
         }
@@ -241,30 +240,30 @@ export class AudioEngine {
 
     // 2. Snare / Clave / Ride (Stem 1)
     switch (this.currentGenre.drumStyle) {
-      case 'linn': // Snare on 1 and 3 (beats 2 and 4 in human 1-based indexing)
+      case 'linn':
         if (beatInBar === 1 || beatInBar === 3) {
           this.playSnare(adjustedTime, 0.9, 'gated');
         }
         break;
-      case 'funk': // Crisp Snare on 1 and 3, ghost tap on 2.5
+      case 'funk':
         if (beatInBar === 1 || beatInBar === 3) {
           this.playSnare(adjustedTime, 0.95, 'acoustic');
         } else if (beatInBar === 2.5) {
           this.playSnare(adjustedTime, 0.35, 'acoustic');
         }
         break;
-      case 'jazz': // Swung Ride Cymbal + Soft brushed snare on 1 & 3
+      case 'jazz':
         this.playRideCymbal(adjustedTime, isDownbeat ? 0.6 : 0.85);
         if (beatInBar === 1 || beatInBar === 3) {
           this.playBrushedSnare(adjustedTime, 0.5);
         }
         break;
-      case 'afro': // Clave click on 0, 1.5, 3
+      case 'afro':
         if (beatInBar === 0 || beatInBar === 1.5 || beatInBar === 3) {
           this.playClaveClick(adjustedTime, 0.85);
         }
         break;
-      case 'breakbeat': // Fast Amen Snare on 1 and 3, plus syncopated snare on 1.75 / 3.25
+      case 'breakbeat':
         if (beatInBar === 1 || beatInBar === 3) {
           this.playSnare(adjustedTime, 1.0, 'break');
         }
@@ -281,7 +280,7 @@ export class AudioEngine {
       this.scheduleBassNote(beat, adjustedTime);
     }
 
-    // 5. Harmony / Lead Arp (Stem 3)
+    // 5. Harmony / Solo Lead Arp (Stem 3)
     this.scheduleLeadArp(beat, adjustedTime);
   }
 
@@ -294,7 +293,6 @@ export class AudioEngine {
     const gain = this.ctx.createGain();
 
     osc.type = 'sine';
-    // Pitch envelope: fast drop from 160Hz to 40Hz
     osc.frequency.setValueAtTime(160, time);
     osc.frequency.exponentialRampToValueAtTime(42, time + 0.08);
 
@@ -348,10 +346,13 @@ export class AudioEngine {
     osc.stop(time + 0.22);
   }
 
-  private playSnare(time: number, volume = 1.0, style: 'gated' | 'acoustic' | 'break' = 'gated'): void {
+  private playSnare(
+    time: number,
+    volume = 1.0,
+    style: 'gated' | 'acoustic' | 'break' = 'gated'
+  ): void {
     if (!this.ctx || !this.stemGains[1] || !this.noiseBuffer) return;
 
-    // Snare tone (body)
     const osc = this.ctx.createOscillator();
     const oscGain = this.ctx.createGain();
     osc.type = 'triangle';
@@ -364,7 +365,6 @@ export class AudioEngine {
     osc.connect(oscGain);
     oscGain.connect(this.stemGains[1]);
 
-    // Snare rattle (noise + bandpass filter)
     const noise = this.ctx.createBufferSource();
     noise.buffer = this.noiseBuffer;
 
@@ -510,7 +510,7 @@ export class AudioEngine {
 
     const scale = this.currentGenre.scale;
     const arpIdx = Math.floor(beat * 2) % scale.length;
-    const semitones = scale[arpIdx] + 12; // 1 octave up
+    const semitones = scale[arpIdx] + 12;
     const freq = intervalToFrequency(this.currentGenre.baseNoteFrequency, semitones);
 
     const osc = this.ctx.createOscillator();
@@ -535,46 +535,252 @@ export class AudioEngine {
     osc.stop(time + 0.2);
   }
 
-  // --- Interactive Hit Sounds (Pitched Notes, Pulses, Obstacle Clashes) ---
+  // --- 6-Instrument Pitched Synthesis for Musical Note Collection ---
 
-  public playNotePickup(lane: number, rating: 'PERFECT' | 'GREAT' | 'GOOD'): void {
+  /**
+   * Plays a pitched musical note (C, C#, D, D#, E, F, F#, G, G#, A, A#, B) using Beat's
+   * equipped Magical Instrument (Piano, Synthesizer, Guitar, Marimba, Flute, Bells).
+   */
+  public playNotePitch(
+    noteName: ChromaticNote,
+    instrument: InstrumentId = 'piano',
+    rating: 'PERFECT' | 'GREAT' | 'GOOD' = 'PERFECT',
+    octave = 4
+  ): void {
     if (!this.ctx || !this.sfxGain) return;
-    const t = this.ctx.currentTime;
+    const freq = noteNameToFrequency(noteName, octave);
+    this.synthesizeInstrumentVoice(freq, instrument, rating, this.ctx.currentTime);
+  }
 
-    // Lane pitch: Left = root/low, Center = mid, Right = high lead
-    const scale = this.currentGenre.scale;
-    const semitone = lane === 0 ? scale[0] : lane === 1 ? scale[2 % scale.length] : scale[4 % scale.length] + 12;
-    const freq = intervalToFrequency(this.currentGenre.baseNoteFrequency, semitone);
+  public playNotePickup(
+    lane: number,
+    rating: 'PERFECT' | 'GREAT' | 'GOOD',
+    noteName?: ChromaticNote,
+    instrument: InstrumentId = 'piano'
+  ): void {
+    if (!this.ctx || !this.sfxGain) return;
 
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-
-    osc.type = rating === 'PERFECT' ? 'sine' : 'triangle';
-    osc.frequency.setValueAtTime(freq, t);
-
-    const vol = rating === 'PERFECT' ? 0.6 : rating === 'GREAT' ? 0.45 : 0.3;
-    gain.gain.setValueAtTime(vol, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + (rating === 'PERFECT' ? 0.35 : 0.2));
-
-    osc.connect(gain);
-    gain.connect(this.sfxGain);
-
-    osc.start(t);
-    osc.stop(t + 0.36);
-
-    // If PERFECT, add harmonic chime sparkle!
-    if (rating === 'PERFECT') {
-      const chime = this.ctx.createOscillator();
-      const chimeGain = this.ctx.createGain();
-      chime.type = 'sine';
-      chime.frequency.setValueAtTime(freq * 2, t);
-      chimeGain.gain.setValueAtTime(0.25, t);
-      chimeGain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-      chime.connect(chimeGain);
-      chimeGain.connect(this.sfxGain);
-      chime.start(t);
-      chime.stop(t + 0.42);
+    if (noteName) {
+      const octave = lane === 0 ? 4 : lane === 1 ? 4 : 5;
+      this.playNotePitch(noteName, instrument, rating, octave);
+      return;
     }
+
+    const scale = this.currentGenre.scale;
+    const semitone =
+      lane === 0 ? scale[0] : lane === 1 ? scale[2 % scale.length] : scale[4 % scale.length] + 12;
+    const freq = intervalToFrequency(this.currentGenre.baseNoteFrequency * 2, semitone);
+    this.synthesizeInstrumentVoice(freq, instrument, rating, this.ctx.currentTime);
+  }
+
+  private synthesizeInstrumentVoice(
+    freq: number,
+    instrument: InstrumentId,
+    rating: 'PERFECT' | 'GREAT' | 'GOOD',
+    startTime: number
+  ): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const vol = rating === 'PERFECT' ? 0.58 : rating === 'GREAT' ? 0.46 : 0.34;
+
+    switch (instrument) {
+      case 'piano': {
+        // Warm acoustic piano: fundamental triangle + 2nd harmonic sine + hammer strike
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const harmGain = this.ctx.createGain();
+
+        osc1.type = 'triangle';
+        osc1.frequency.setValueAtTime(freq, startTime);
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+        gain.gain.setValueAtTime(0.001, startTime);
+        gain.gain.linearRampToValueAtTime(vol, startTime + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.48);
+
+        harmGain.gain.setValueAtTime(vol * 0.35, startTime);
+        harmGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.22);
+
+        osc1.connect(gain);
+        osc2.connect(harmGain);
+        harmGain.connect(gain);
+        gain.connect(this.sfxGain);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + 0.5);
+        osc2.stop(startTime + 0.25);
+        break;
+      }
+
+      case 'synth': {
+        // Dual detuned sawtooth + square with resonant lowpass filter envelope
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'square';
+        osc1.frequency.setValueAtTime(freq, startTime);
+        osc2.frequency.setValueAtTime(freq * 1.005, startTime);
+
+        filter.type = 'lowpass';
+        filter.Q.setValueAtTime(4.0, startTime);
+        filter.frequency.setValueAtTime(3200, startTime);
+        filter.frequency.exponentialRampToValueAtTime(480, startTime + 0.32);
+
+        gain.gain.setValueAtTime(vol * 0.55, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.38);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxGain);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + 0.4);
+        osc2.stop(startTime + 0.4);
+        break;
+      }
+
+      case 'guitar': {
+        // Plucked string resonance with crisp pick transient
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sawtooth';
+        osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(freq, startTime);
+        osc2.frequency.setValueAtTime(freq * 2, startTime);
+
+        filter.type = 'lowpass';
+        filter.Q.setValueAtTime(2.5, startTime);
+        filter.frequency.setValueAtTime(3800, startTime);
+        filter.frequency.exponentialRampToValueAtTime(650, startTime + 0.18);
+
+        gain.gain.setValueAtTime(vol * 0.65, startTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.42);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.sfxGain);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + 0.44);
+        osc2.stop(startTime + 0.44);
+        break;
+      }
+
+      case 'marimba': {
+        // Rosewood bar fundamental + 4th harmonic overtone with fast wooden decay
+        const osc1 = this.ctx.createOscillator();
+        const osc4 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        const gain4 = this.ctx.createGain();
+
+        osc1.type = 'sine';
+        osc4.type = 'sine';
+        osc1.frequency.setValueAtTime(freq, startTime);
+        osc4.frequency.setValueAtTime(freq * 4, startTime);
+
+        gain1.gain.setValueAtTime(vol * 0.8, startTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, startTime + 0.26);
+
+        gain4.gain.setValueAtTime(vol * 0.45, startTime);
+        gain4.gain.exponentialRampToValueAtTime(0.001, startTime + 0.065);
+
+        osc1.connect(gain1);
+        osc4.connect(gain4);
+        gain1.connect(this.sfxGain);
+        gain4.connect(this.sfxGain);
+
+        osc1.start(startTime);
+        osc4.start(startTime);
+        osc1.stop(startTime + 0.28);
+        osc4.stop(startTime + 0.08);
+        break;
+      }
+
+      case 'flute': {
+        // Airy sine with soft attack, vibrato LFO, and gentle breath
+        const osc = this.ctx.createOscillator();
+        const lfo = this.ctx.createOscillator();
+        const lfoGain = this.ctx.createGain();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq * 1.5 > 1200 ? freq : freq * 2, startTime);
+
+        lfo.type = 'sine';
+        lfo.frequency.setValueAtTime(5.5, startTime);
+        lfoGain.gain.setValueAtTime(6.0, startTime);
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+
+        gain.gain.setValueAtTime(0.001, startTime);
+        gain.gain.linearRampToValueAtTime(vol * 0.65, startTime + 0.045);
+        gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.42);
+
+        osc.connect(gain);
+        gain.connect(this.sfxGain);
+
+        osc.start(startTime);
+        lfo.start(startTime);
+        osc.stop(startTime + 0.44);
+        lfo.stop(startTime + 0.44);
+        break;
+      }
+
+      case 'bells': {
+        // Metallic glockenspiel chime: fundamental + inharmonic bell partial (2.756x)
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain1 = this.ctx.createGain();
+        const gain2 = this.ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        osc1.frequency.setValueAtTime(freq * 2, startTime);
+        osc2.frequency.setValueAtTime(freq * 2 * 2.756, startTime);
+
+        gain1.gain.setValueAtTime(vol * 0.55, startTime);
+        gain1.gain.exponentialRampToValueAtTime(0.001, startTime + 0.58);
+
+        gain2.gain.setValueAtTime(vol * 0.28, startTime);
+        gain2.gain.exponentialRampToValueAtTime(0.001, startTime + 0.22);
+
+        osc1.connect(gain1);
+        osc2.connect(gain2);
+        gain1.connect(this.sfxGain);
+        gain2.connect(this.sfxGain);
+
+        osc1.start(startTime);
+        osc2.start(startTime);
+        osc1.stop(startTime + 0.6);
+        osc2.stop(startTime + 0.24);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Plays a celebratory arpeggio flourish when Beat completes a Musical Sequence (e.g. C -> E -> G -> C)
+   */
+  public playSequenceCompleteChord(notes: ChromaticNote[], instrument: InstrumentId): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const now = this.ctx.currentTime;
+    notes.forEach((note, idx) => {
+      const octave = idx === notes.length - 1 ? 5 : 4;
+      const freq = noteNameToFrequency(note, octave);
+      this.synthesizeInstrumentVoice(freq, instrument, 'PERFECT', now + idx * 0.055);
+    });
   }
 
   public playPulseAction(): void {
@@ -619,11 +825,65 @@ export class AudioEngine {
     osc.stop(t + 0.22);
   }
 
+  public playSlideAction(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(360, t);
+    osc.frequency.exponentialRampToValueAtTime(110, t + 0.16);
+
+    gain.gain.setValueAtTime(0.35, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t);
+    osc.stop(t + 0.2);
+  }
+
+  /**
+   * Comedic Police Whistle trill when Officer Tempo surges closer!
+   */
+  public playOfficerWhistle(): void {
+    if (!this.ctx || !this.sfxGain) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const lfo = this.ctx.createOscillator();
+    const lfoGain = this.ctx.createGain();
+    const gain = this.ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2650, t);
+    osc.frequency.linearRampToValueAtTime(2950, t + 0.18);
+
+    lfo.type = 'sine';
+    lfo.frequency.setValueAtTime(28, t); // Pea-whistle trill
+    lfoGain.gain.setValueAtTime(140, t);
+    lfo.connect(lfoGain);
+    lfoGain.connect(osc.frequency);
+
+    gain.gain.setValueAtTime(0.28, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t);
+    lfo.start(t);
+    osc.stop(t + 0.25);
+    lfo.stop(t + 0.25);
+  }
+
   public playObstacleClash(): void {
     if (!this.ctx || !this.sfxGain) return;
     const t = this.ctx.currentTime;
 
-    // Dissonant minor 2nd cluster thud
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -631,7 +891,7 @@ export class AudioEngine {
     osc1.type = 'sawtooth';
     osc2.type = 'sawtooth';
     osc1.frequency.setValueAtTime(95, t);
-    osc2.frequency.setValueAtTime(101, t); // Dissonant beating
+    osc2.frequency.setValueAtTime(101, t);
 
     gain.gain.setValueAtTime(0.55, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
@@ -644,6 +904,9 @@ export class AudioEngine {
     osc2.start(t);
     osc1.stop(t + 0.3);
     osc2.stop(t + 0.3);
+
+    // Officer Tempo blows his whistle as he surges closer!
+    this.playOfficerWhistle();
   }
 
   public playCallCue(noteFreq: number): void {
@@ -714,7 +977,6 @@ export class AudioEngine {
     if (!this.ctx || !this.sfxGain) return;
     const t = this.ctx.currentTime;
 
-    // High 2-note bell chime (B5 -> E6)
     const osc1 = this.ctx.createOscillator();
     const osc2 = this.ctx.createOscillator();
     const gain = this.ctx.createGain();
@@ -761,7 +1023,7 @@ export class AudioEngine {
     if (!this.ctx || !this.sfxGain) return;
     const t = this.ctx.currentTime;
 
-    const freqs = [523.25, 659.25, 783.99, 1046.5]; // C Major arpeggiated burst
+    const freqs = [523.25, 659.25, 783.99, 1046.5];
     freqs.forEach((freq, idx) => {
       const osc = this.ctx!.createOscillator();
       const gain = this.ctx!.createGain();
@@ -804,18 +1066,6 @@ export class AudioEngine {
   public setMasterVolume(val: number): void {
     if (this.masterGain && this.ctx) {
       this.masterGain.gain.setValueAtTime(Math.max(0, Math.min(1, val)), this.ctx.currentTime);
-    }
-  }
-
-  public setMusicVolume(val: number): void {
-    if (this.musicGain && this.ctx) {
-      this.musicGain.gain.setValueAtTime(Math.max(0, Math.min(1, val)), this.ctx.currentTime);
-    }
-  }
-
-  public setSfxVolume(val: number): void {
-    if (this.sfxGain && this.ctx) {
-      this.sfxGain.gain.setValueAtTime(Math.max(0, Math.min(1, val)), this.ctx.currentTime);
     }
   }
 }

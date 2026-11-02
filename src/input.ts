@@ -1,6 +1,13 @@
 // Beat Runner - Cross-Platform Unified Input Manager (Laptop Keyboard + Mobile Touch)
 
-export type PlayerActionType = 'move_left' | 'move_right' | 'set_lane' | 'pulse' | 'jump' | 'pause';
+export type PlayerActionType =
+  | 'move_left'
+  | 'move_right'
+  | 'set_lane'
+  | 'pulse'
+  | 'jump'
+  | 'slide'
+  | 'pause';
 
 export interface PlayerInputEvent {
   type: PlayerActionType;
@@ -41,6 +48,7 @@ export class InputManager {
   }
 
   private setupKeyboardListeners(): void {
+    if (typeof window === 'undefined') return;
     window.addEventListener('keydown', (e) => {
       // Avoid triggering when user is in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -71,6 +79,13 @@ export class InputManager {
 
         case 'KeyS':
         case 'ArrowDown':
+          e.preventDefault();
+          this.dispatch({ type: 'slide', timestamp: now });
+          break;
+
+        case 'KeyF':
+        case 'ShiftLeft':
+        case 'ShiftRight':
           e.preventDefault();
           this.dispatch({ type: 'pulse', timestamp: now });
           break;
@@ -117,7 +132,6 @@ export class InputManager {
         this.isTouching = true;
         this.touchHandledAsSwipe = false;
 
-        // Optional early tap detection if bottom action button was not tapped
         e.preventDefault();
       },
       { passive: false }
@@ -134,10 +148,8 @@ export class InputManager {
         const deltaY = touch.clientY - this.touchStartY;
         const now = performance.now();
 
-        // Check if movement exceeds swipe threshold
         if (!this.touchHandledAsSwipe) {
           if (Math.abs(deltaX) > this.swipeThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-            // Horizontal swipe
             if (deltaX < 0) {
               this.dispatch({ type: 'move_left', timestamp: now });
             } else {
@@ -147,6 +159,10 @@ export class InputManager {
           } else if (deltaY < -this.swipeThreshold) {
             // Upward swipe -> Jump
             this.dispatch({ type: 'jump', timestamp: now });
+            this.touchHandledAsSwipe = true;
+          } else if (deltaY > this.swipeThreshold) {
+            // Downward swipe -> Slide
+            this.dispatch({ type: 'slide', timestamp: now });
             this.touchHandledAsSwipe = true;
           }
         }
@@ -161,7 +177,6 @@ export class InputManager {
         e.preventDefault();
         this.isTouching = false;
 
-        // If it wasn't a swipe, treat as a direct 3-lane tap!
         if (!this.touchHandledAsSwipe) {
           const rect = element.getBoundingClientRect();
           const relativeX = this.touchStartX - rect.left;
@@ -170,13 +185,11 @@ export class InputManager {
           const height = rect.height;
           const now = performance.now();
 
-          // If tapped in lower 22% of screen, trigger a Beat Pulse/Jump
           if (relativeY > height * 0.78) {
             this.dispatch({ type: 'jump', timestamp: now });
             return;
           }
 
-          // Otherwise determine which lane was tapped (0 = Left 33%, 1 = Mid 33%, 2 = Right 33%)
           const colWidth = width / 3;
           let tappedLane = 1;
           if (relativeX < colWidth) {

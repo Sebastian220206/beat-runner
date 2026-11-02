@@ -8,8 +8,13 @@ import {
   intervalToFrequency,
   TIMING_WINDOWS,
   CALL_RESPONSE_LIBRARY,
+  CHROMATIC_NOTES,
+  semitoneToNoteName,
+  noteNameToFrequency,
+  MUSICAL_SEQUENCES,
 } from '../src/rhythm.ts';
 import { GENRES, GENRE_ORDER } from '../src/genres.ts';
+import { GameManager } from '../src/game.ts';
 
 describe('Rhythm Math & Time Conversions', () => {
   it('converts BPM to seconds per beat correctly', () => {
@@ -124,6 +129,55 @@ describe('Musical Utilities & Pattern Library', () => {
       expect(g.colors.highway).toBeDefined();
       expect(g.rhythmPatterns.length).toBeGreaterThan(0);
     }
+  });
+
+  it('supports the 12-note chromatic scale and musical sequences', () => {
+    expect(CHROMATIC_NOTES).toEqual([
+      'C',
+      'C#',
+      'D',
+      'D#',
+      'E',
+      'F',
+      'F#',
+      'G',
+      'G#',
+      'A',
+      'A#',
+      'B',
+    ]);
+    expect(semitoneToNoteName(0)).toBe('C');
+    expect(semitoneToNoteName(4)).toBe('E');
+    expect(semitoneToNoteName(7)).toBe('G');
+    expect(semitoneToNoteName(12)).toBe('C');
+
+    expect(noteNameToFrequency('A', 4)).toBeCloseTo(440, 0);
+    expect(MUSICAL_SEQUENCES[0].notes).toEqual(['C', 'E', 'G', 'C']);
+  });
+
+  it('maintains a dedicated PlayerCollider and CharacterAnimState decoupled from the visual mesh', () => {
+    const gm = new GameManager();
+    expect(gm.charAnimState).toBe('IDLE');
+    expect(gm.isColliderOverlappingLane(1)).toBe(true);
+    expect(gm.isColliderOverlappingLane(0)).toBe(false);
+    expect(gm.collider.standingHeight).toBeCloseTo(1.85);
+    expect(gm.collider.slidingHeight).toBeCloseTo(0.85);
+    expect(gm.getPlayerHeight()).toBe(0);
+
+    gm.state = 'PLAYING';
+    gm.update(0.016);
+    expect(gm.charAnimState).toBe('RUNNING');
+
+    gm.isSliding = true;
+    gm.update(0.016);
+    expect(gm.charAnimState).toBe('SLIDING');
+
+    gm.isSliding = false;
+    gm.isJumping = true;
+    gm.jumpProgress = 0.25;
+    gm.update(0.016);
+    expect(gm.charAnimState).toBe('JUMPING');
+    expect(gm.getPlayerHeight()).toBeGreaterThan(1.0);
   });
 });
 

@@ -1193,6 +1193,126 @@ button {
 }
 
 /* ==========================================================================
+   THE GREAT MUSICAL CHASE - STORY, SEQUENCE & OFFICER TEMPO HUD COMPONENTS
+   ========================================================================== */
+
+.story-tagline {
+  margin-top: 8px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(9, 4, 20, 0.78);
+  border: 2px solid rgba(56, 189, 248, 0.45);
+  font-size: 12px;
+  font-weight: 800;
+  color: #e2e8f0;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+}
+
+.story-tagline strong {
+  color: #fbbf24;
+}
+
+.tempo-radar-pill {
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(9, 4, 20, 0.85);
+  border: 1.5px solid rgba(251, 191, 36, 0.45);
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: 0.4px;
+  color: #fbbf24;
+  text-align: center;
+}
+
+.hud-top-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.note-sequence-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(9, 4, 20, 0.88);
+  border: 2px solid #fbbf24;
+  box-shadow: 0 3px 0 #090414;
+  font-family: var(--font-display);
+  font-size: 11px;
+}
+
+.seq-label {
+  color: #94a3b8;
+  font-size: 10px;
+}
+
+.seq-notes {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+.seq-note-hit {
+  color: #4ade80;
+  text-shadow: 0 0 8px #4ade80;
+}
+
+.seq-note-next {
+  color: #fbbf24;
+  text-decoration: underline;
+  font-size: 13px;
+}
+
+.seq-note-pending {
+  color: #64748b;
+}
+
+.notes-collected-ticker {
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: rgba(9, 4, 20, 0.78);
+  border: 1px solid rgba(0, 243, 255, 0.35);
+  font-size: 10px;
+  font-weight: 800;
+  color: #cbd5e1;
+  letter-spacing: 0.5px;
+}
+
+.notes-collected-ticker strong {
+  color: #00f3ff;
+  font-family: var(--font-mono);
+}
+
+.mission-mini-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 42, 133, 0.2);
+  border: 1.5px solid #ff2a85;
+  font-size: 10px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.studio-section-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  color: #fbbf24;
+  padding: 4px 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mobile-action-overlay {
+  display: flex;
+  gap: 10px;
+}
+
+/* ==========================================================================
    RESPONSIVE QUERIES (Mobile-First Polish)
    ========================================================================== */
 
@@ -1212,5 +1332,9 @@ button {
   }
   .score-odometer {
     font-size: 24px;
+  }
+  .story-tagline {
+    font-size: 10px;
+    padding: 4px 10px;
   }
 }

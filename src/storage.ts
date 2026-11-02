@@ -1,4 +1,59 @@
-// Beat Runner - LocalStorage Persistent Settings, Beat Coins & Hovercraft Garage
+// Beat Runner - LocalStorage Persistent Settings, Musical Notes, Magical Instruments & Hovercraft Garage
+
+export type InstrumentId = 'piano' | 'synth' | 'guitar' | 'marimba' | 'flute' | 'bells';
+
+export interface MagicalInstrument {
+  id: InstrumentId;
+  name: string;
+  subtitle: string;
+  description: string;
+  color: string;
+}
+
+export const AVAILABLE_INSTRUMENTS: MagicalInstrument[] = [
+  {
+    id: 'piano',
+    name: 'Grand Piano',
+    subtitle: 'Acoustic Harmonic Keys',
+    description: 'Warm concert grand piano resonance with crisp hammer harmonics.',
+    color: '#00f3ff',
+  },
+  {
+    id: 'synth',
+    name: 'Neon Synthesizer',
+    subtitle: 'Analog Sawtooth Lead',
+    description: 'Vibrant polyphonic analog synth lead with sweeping filter envelope.',
+    color: '#ff2a85',
+  },
+  {
+    id: 'guitar',
+    name: 'Electric Guitar',
+    subtitle: 'Plucked Harmonic Strings',
+    description: 'Expressive plucked string resonance that cuts through the railway beat.',
+    color: '#f59e0b',
+  },
+  {
+    id: 'marimba',
+    name: 'Resonant Marimba',
+    subtitle: 'Warm Wooden Mallets',
+    description: 'Percussive rosewood bars tuned with rich 4th-harmonic overtones.',
+    color: '#22c55e',
+  },
+  {
+    id: 'flute',
+    name: 'Crystal Flute',
+    subtitle: 'Airy Vibrato Wind',
+    description: 'Silky, breathy wind melody with expressive shimmer vibrato.',
+    color: '#38bdf8',
+  },
+  {
+    id: 'bells',
+    name: 'Starlight Bells',
+    subtitle: 'FM Chime Glockenspiel',
+    description: 'Bright metallic chime harmonics that ring across the silent city.',
+    color: '#c084fc',
+  },
+];
 
 export interface GenreRecord {
   highScore: number;
@@ -14,6 +69,7 @@ export interface UserSettings {
   sfxVolume: number;
   vibrationEnabled: boolean;
   showTimingDiagnostics: boolean;
+  equippedInstrument: InstrumentId;
 }
 
 export interface GameStats {
@@ -41,7 +97,7 @@ export const AVAILABLE_SKINS: HovercraftSkin[] = [
   {
     id: 'interceptor',
     name: 'Outrun Interceptor',
-    description: 'Classic synthwave cybercraft with neon cyan hull and magenta thrusters.',
+    description: 'Beat’s signature neon cyan soundboard with magenta bass thrusters.',
     cost: 0,
     primaryColor: '#00f3ff',
     secondaryColor: '#ff007f',
@@ -61,7 +117,7 @@ export const AVAILABLE_SKINS: HovercraftSkin[] = [
   {
     id: 'blue_phantom',
     name: 'Blue Note Phantom',
-    description: 'Swung midnight brass craft tuned for silky-smooth triplet cornering.',
+    description: 'Swung midnight brass board tuned for silky-smooth triplet cornering.',
     cost: 500,
     primaryColor: '#60a5fa',
     secondaryColor: '#f5d77f',
@@ -71,7 +127,7 @@ export const AVAILABLE_SKINS: HovercraftSkin[] = [
   {
     id: 'emerald_viper',
     name: 'Emerald Viper',
-    description: 'Bioluminescent polyrhythmic racer from the tropical clave biome.',
+    description: 'Bioluminescent polyrhythmic soundboard from the tropical clave biome.',
     cost: 800,
     primaryColor: '#00e676',
     secondaryColor: '#ff5722',
@@ -81,7 +137,7 @@ export const AVAILABLE_SKINS: HovercraftSkin[] = [
   {
     id: 'cyber_wing',
     name: 'Cyber Glitch Wing',
-    description: 'High-velocity 170 BPM breakbeat interceptor with dual crimson afterburners.',
+    description: 'High-velocity 170 BPM breakbeat board that leaves Officer Tempo in the dust.',
     cost: 1200,
     primaryColor: '#39ff14',
     secondaryColor: '#ff0055',
@@ -102,6 +158,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   sfxVolume: 0.9,
   vibrationEnabled: true,
   showTimingDiagnostics: true,
+  equippedInstrument: 'piano',
 };
 
 const DEFAULT_STATS: GameStats = {
@@ -169,6 +226,15 @@ export class StorageManager {
 
   public getSettings(): UserSettings {
     return { ...this.settings };
+  }
+
+  public getEquippedInstrument(): MagicalInstrument {
+    const inst = AVAILABLE_INSTRUMENTS.find((i) => i.id === this.settings.equippedInstrument);
+    return inst || AVAILABLE_INSTRUMENTS[0];
+  }
+
+  public equipInstrument(instrumentId: InstrumentId): void {
+    this.saveSettings({ equippedInstrument: instrumentId });
   }
 
   private loadRecords(): Record<string, GenreRecord> {
@@ -246,14 +312,14 @@ export class StorageManager {
     return { ...this.stats };
   }
 
-  // --- Beat Coins & Garage Economy ---
+  // --- Musical Notes Currency & Garage Economy ---
 
   private loadEconomyAndGarage(): void {
     const storedCoins = safeGetItem(COINS_KEY);
     if (storedCoins !== null) {
       this.coins = Math.max(0, parseInt(storedCoins, 10) || 0);
     } else {
-      this.coins = 50; // Starter coins gift
+      this.coins = 50; // Starter notes gift
     }
 
     const storedGarage = safeGetItem(GARAGE_KEY);
